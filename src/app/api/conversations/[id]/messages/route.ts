@@ -112,11 +112,15 @@ export async function GET(
       return successResponse(messages)
     }
 
+    const cursor = searchParams.get('cursor')
     const messages = await prisma.message.findMany({
       where: { conversationId: id },
-      orderBy: { createdAt: 'asc' },
-      take: -limit,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: cursor ? 1 : 0,
+      ...(cursor ? { cursor: { id: cursor } } : {}),
     })
+    messages.reverse()
 
     return successResponse(messages)
   } catch (error) {

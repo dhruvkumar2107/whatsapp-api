@@ -207,6 +207,15 @@ export default function SettingsPage() {
   const [security, setSecurity] = React.useState<SecurityData | null>(null);
   const [securityLoading, setSecurityLoading] = React.useState(true);
 
+  interface NotificationPreference {
+    type: string;
+    email: boolean;
+    inApp: boolean;
+  }
+  const [notifPrefs, setNotifPrefs] = React.useState<NotificationPreference[]>([]);
+  const [notifPrefsLoading, setNotifPrefsLoading] = React.useState(true);
+  const [savingNotifPrefs, setSavingNotifPrefs] = React.useState(false);
+
   React.useEffect(() => {
     fetch("/api/settings")
       .then((r) => r.json())
@@ -249,6 +258,14 @@ export default function SettingsPage() {
       })
       .catch(() => {})
       .finally(() => setWebhooksLoading(false));
+
+    fetch("/api/settings/notifications")
+      .then((r) => r.json())
+      .then((body: ApiResponse<{ preferences: NotificationPreference[] }>) => {
+        if (body.success) setNotifPrefs(body.data.preferences);
+      })
+      .catch(() => {})
+      .finally(() => setNotifPrefsLoading(false));
   }, []);
 
   const saveWorkspace = async (e: React.FormEvent) => {
@@ -273,6 +290,29 @@ export default function SettingsPage() {
       toast({ title: "Something went wrong", variant: "destructive" });
     } finally {
       setSavingWorkspace(false);
+    }
+  };
+
+  const saveNotifPrefs = async () => {
+    setSavingNotifPrefs(true);
+    try {
+      const res = await fetch("/api/settings/notifications", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preferences: notifPrefs }),
+      });
+      const body = (await res.json()) as ApiResponse<{ updated: boolean }> & {
+        error?: { message?: string };
+      };
+      if (body.success) {
+        toast({ title: "Notification preferences saved" });
+      } else {
+        toast({ title: "Failed to save preferences", description: body.error?.message, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Something went wrong", variant: "destructive" });
+    } finally {
+      setSavingNotifPrefs(false);
     }
   };
 
@@ -894,16 +934,54 @@ export default function SettingsPage() {
           <div className="grid max-w-4xl gap-6">
             <Section
               title="Notifications"
-              description="Notification preferences are coming soon."
+              description="Configure how you receive notifications for workspace events."
             >
-              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-10 text-center">
-                <Check className="size-6 text-zinc-400" />
-                <p className="text-sm font-medium">Notification preferences</p>
-                <p className="max-w-sm text-xs text-zinc-500">
-                  You will soon be able to configure email and in-app notifications for
-                  campaigns, message failures, and other workspace events.
-                </p>
-              </div>
+              {notifPrefsLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-2 text-xs font-medium text-muted-foreground">
+                    <div>Event</div>
+                    <div className="text-center">In-app</div>
+                    <div className="text-center">Email</div>
+                  </div>
+                  {notifPrefs.map((pref) => (
+                    <div key={pref.type} className="grid grid-cols-3 items-center gap-2 rounded-md border p-3">
+                      <div className="text-sm font-medium capitalize">{pref.type.replace(/\./g, " ")}</div>
+                      <div className="flex justify-center">
+                        <Switch
+                          checked={pref.inApp}
+                          onCheckedChange={(checked) =>
+                            setNotifPrefs((prev) =>
+                              prev.map((p) => (p.type === pref.type ? { ...p, inApp: checked } : p))
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="flex justify-center">
+                        <Switch
+                          checked={pref.email}
+                          onCheckedChange={(checked) =>
+                            setNotifPrefs((prev) =>
+                              prev.map((p) => (p.type === pref.type ? { ...p, email: checked } : p))
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex justify-end pt-2">
+                    <Button onClick={saveNotifPrefs} disabled={savingNotifPrefs}>
+                      {savingNotifPrefs && <Loader2 className="mr-2 size-4 animate-spin" />}
+                      Save Preferences
+                    </Button>
+                  </div>
+                </div>
+              )}
             </Section>
           </div>
         </TabsContent>

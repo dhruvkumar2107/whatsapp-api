@@ -10,6 +10,7 @@ import {
   ValidationError,
 } from '@/lib/errors'
 import { resolveWorkspaceTags, zodErrorsToRecord } from '@/lib/contacts'
+import { checkAndFailUsageLimit, incrementUsage } from '@/lib/usage'
 
 interface ImportedContact {
   name: string
@@ -158,6 +159,13 @@ export async function POST(request: NextRequest) {
       const toCreate = results.filter(
         (result) => result.status === 'valid'
       ) as RowResult[]
+
+      if (toCreate.length > 0) {
+        const usageCheck = await checkAndFailUsageLimit(workspaceId, 'contactsUsed', toCreate.length)
+        if (!usageCheck.allowed) {
+          throw new Error(usageCheck.message ?? 'Contact limit reached for your plan')
+        }
+      }
       const toUpdate = results.filter((result) => {
         if (result.status !== 'duplicate') return false
         if (duplicateStrategy !== 'update') return false
@@ -250,6 +258,21 @@ export async function POST(request: NextRequest) {
     const duplicateCount = results.filter(
       (result) => result.status === 'duplicate'
     ).length
+
+    if (created > 0) {
+      await incrementUsage(workspaceId, { contactsUsed: created }).catch(() => {})
+      const { triggerAutomations } = await import('@/lib/automation/engine')
+      for (const result of results.filter((r) => r.status === 'valid')) {
+        const rc = result.contact
+        if (!rc) continue
+        const found = await prisma.contact.findFirst({
+          where: { workspaceId, phone: rc.phone },
+        })
+        if (found) {
+          void triggerAutomations({ type: 'contact_created', contact: found, messageText: '' }, workspaceId).catch(() => {})
+        }
+      }
+    }
 
     return successResponse({
       summary: {

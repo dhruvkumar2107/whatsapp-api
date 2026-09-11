@@ -1,11 +1,10 @@
-import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createWhatsAppProvider } from "@/lib/whatsapp";
 import { successResponse } from "@/lib/api-utils";
 import { handleApiError, UnauthorizedError } from "@/lib/errors";
 
-export async function POST(_request: NextRequest) {
+export async function POST() {
   try {
     const session = await auth();
     const workspaceId = session?.user?.workspaceId;
@@ -56,6 +55,12 @@ export async function POST(_request: NextRequest) {
           const bodyComp = remote.components?.find(
             (c: { type?: string }) => c.type?.toLowerCase() === "body"
           );
+          const footerComp = remote.components?.find(
+            (c: { type?: string }) => c.type?.toLowerCase() === "footer"
+          );
+          const buttonsComp = remote.components?.find(
+            (c: { type?: string }) => c.type?.toLowerCase() === "buttons"
+          );
 
           const headerData = headerComp
             ? { type: "text", text: headerComp.text || "" }
@@ -63,14 +68,28 @@ export async function POST(_request: NextRequest) {
           const bodyData = bodyComp
             ? { text: bodyComp.text || "" }
             : undefined;
+          const footerData = footerComp?.text || undefined;
+          const buttonsData = buttonsComp
+            ? (buttonsComp as unknown as { buttons?: Array<{ type: string; text: string; url?: string }> }).buttons?.map((b) => ({
+                type: b.type,
+                text: b.text,
+                ...(b.url ? { url: b.url } : {}),
+              }))
+            : undefined;
+
+          const templateData: Record<string, unknown> = {
+            status: newStatus as "APPROVED" | "PENDING" | "REJECTED" | "DISABLED" | "DRAFT" | "PAUSED",
+            metaTemplateId: remote.id,
+            header: headerData,
+            body: bodyData,
+            footer: footerData,
+            buttons: buttonsData,
+          };
 
           if (existing) {
             await prisma.template.update({
               where: { id: existing.id },
-              data: {
-                status: newStatus as "APPROVED" | "PENDING" | "REJECTED" | "DISABLED" | "DRAFT" | "PAUSED",
-                metaTemplateId: remote.id,
-              },
+              data: templateData,
             });
           } else {
             await prisma.template.create({
@@ -80,10 +99,7 @@ export async function POST(_request: NextRequest) {
                 name: remote.name,
                 language: remote.language,
                 category: remote.category,
-                status: newStatus as "APPROVED" | "PENDING" | "REJECTED" | "DISABLED" | "DRAFT" | "PAUSED",
-                metaTemplateId: remote.id,
-                header: headerData,
-                body: bodyData,
+                ...templateData,
               },
             });
           }

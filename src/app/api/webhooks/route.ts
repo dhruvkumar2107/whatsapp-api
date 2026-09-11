@@ -4,10 +4,10 @@ import { auth } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { webhookSchema } from '@/lib/validators'
 import { successResponse } from '@/lib/api-utils'
-import { handleApiError, UnauthorizedError, ValidationError } from '@/lib/errors'
+import { handleApiError, UnauthorizedError, ValidationError, ForbiddenError } from '@/lib/errors'
 import { requirePermission } from '@/lib/permissions'
 import { createAuditLog } from '@/lib/audit'
-import { PERMISSIONS } from '@/lib/constants'
+import { PERMISSIONS, PLAN_LIMITS } from '@/lib/constants'
 
 export async function GET() {
   try {
@@ -44,6 +44,15 @@ export async function POST(request: NextRequest) {
     if (!workspaceId || !userId) throw new UnauthorizedError()
 
     requirePermission(session?.user?.role, PERMISSIONS.WEBHOOKS_MANAGE)
+
+    const subscription = await prisma.subscription.findFirst({ where: { workspaceId, status: 'ACTIVE' } })
+    const plan = subscription ? await prisma.plan.findUnique({ where: { id: subscription.planId } }) : null
+    const planKey = plan?.name?.toUpperCase() || 'FREE'
+    const limit = PLAN_LIMITS[planKey as keyof typeof PLAN_LIMITS]?.webhooks || PLAN_LIMITS.FREE.webhooks
+    if (limit !== -1) {
+      const count = await prisma.webhook.count({ where: { workspaceId } })
+      if (count >= limit) throw new ForbiddenError('Webhook limit reached for your plan')
+    }
 
     const body = await request.json().catch(() => null)
     const parsed = webhookSchema.safeParse(body ?? {})

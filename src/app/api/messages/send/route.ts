@@ -2,10 +2,12 @@ import { NextRequest } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { auth } from '@/lib/auth'
 import prisma from '@/lib/prisma'
-import { handleApiError, UnauthorizedError } from '@/lib/errors'
+import { handleApiError, UnauthorizedError, RateLimitError } from '@/lib/errors'
 import { successResponse, authenticateApiKey } from '@/lib/api-utils'
 import { messageSendSchema } from '@/lib/validators'
 import { enqueueMessageSend } from '@/lib/whatsapp/send'
+import { checkAndFailUsageLimit, incrementUsage } from '@/lib/usage'
+import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,9 +27,20 @@ export async function POST(request: NextRequest) {
 
     if (!workspaceId) throw new UnauthorizedError('No workspace')
 
+    const { allowed } = rateLimit(`send:${workspaceId}`, 30, 60_000)
+    if (!allowed) {
+      throw new RateLimitError('Too many requests. Please try again later.')
+    }
+
+    const usageCheck = await checkAndFailUsageLimit(workspaceId, 'messagesUsed', 1)
+    if (!usageCheck.allowed) {
+      throw new Error(usageCheck.message ?? 'Message limit reached for your plan')
+    }
+
     const body = await request.json()
     const validated = messageSendSchema.parse(body)
 
+    let isNewContact = false
     let contact = await prisma.contact.findFirst({
       where: { workspaceId, phone: validated.to },
     })
@@ -39,6 +52,7 @@ export async function POST(request: NextRequest) {
           source: 'api',
         },
       })
+      isNewContact = true
     }
 
     const whatsappAccount = await prisma.whatsAppAccount.findFirst({
@@ -109,6 +123,17 @@ export async function POST(request: NextRequest) {
     })
 
     enqueueMessageSend(message.id, conversation.id)
+
+    void incrementUsage(workspaceId, { messagesUsed: 1 }).catch(() => {})
+
+    if (isNewContact) {
+      const { triggerAutomations } = await import('@/lib/automation/engine')
+      const messageText = validated.type === 'TEXT' && validated.text ? validated.text : ''
+      void triggerAutomations(
+        { type: 'contact_created', contact, messageText },
+        workspaceId
+      ).catch(() => {})
+    }
 
     return successResponse({ messageId: message.id }, 201)
   } catch (error) {

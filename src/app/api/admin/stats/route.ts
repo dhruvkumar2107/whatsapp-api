@@ -1,9 +1,8 @@
-import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireSuperAdmin } from "@/lib/admin";
 import { successResponse, errorResponse } from "@/lib/api-utils";
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     await requireSuperAdmin();
 

@@ -81,6 +81,7 @@ export default function InboxPage() {
   const [detailLoading, setDetailLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [lastRefresh, setLastRefresh] = useState(0)
 
   const scrollAnchorRef = useRef<HTMLDivElement>(null)
   const lastMessageIdRef = useRef<string | null>(null)
@@ -149,9 +150,32 @@ export default function InboxPage() {
       if (selected) {
         fetchConversation(selected, true)
       }
-    }, 10000)
+    }, 30000)
     return () => clearInterval(interval)
   }, [loadConversations, fetchConversation])
+
+  useEffect(() => {
+    const eventSource = new EventSource('/api/conversations/events')
+
+    eventSource.addEventListener('message.received', () => {
+      setLastRefresh(Date.now())
+    })
+
+    eventSource.addEventListener('message.sent', () => {
+      setLastRefresh(Date.now())
+    })
+
+    return () => eventSource.close()
+  }, [])
+
+  useEffect(() => {
+    if (lastRefresh === 0) return
+    loadConversations(true)
+    const selected = selectedIdRef.current
+    if (selected) {
+      fetchConversation(selected, true)
+    }
+  }, [lastRefresh, loadConversations, fetchConversation])
 
   const handleSelect = useCallback(
     (id: string) => {

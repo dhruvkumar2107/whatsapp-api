@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -13,9 +13,6 @@ import {
   CheckCheck,
   Eye,
   Send,
-  Clock,
-  BarChart3,
-  TrendingUp,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -186,7 +183,6 @@ function StatCard({
 }
 
 export default function CampaignDetailPage() {
-  const router = useRouter();
   const params = useParams();
   const id = params.id as string;
 
@@ -297,7 +293,6 @@ export default function CampaignDetailPage() {
   const chartData = React.useMemo(() => {
     if (!campaign) return [];
     const points = [];
-    const total = campaign.totalRecipients || 1;
     points.push({ name: "Start", sent: 0, delivered: 0, read: 0 });
     points.push({
       name: "Sent",

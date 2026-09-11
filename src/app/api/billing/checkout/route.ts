@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { successResponse } from '@/lib/api-utils'
-import { handleApiError, UnauthorizedError, ValidationError } from '@/lib/errors'
+import { handleApiError, UnauthorizedError, ValidationError, ForbiddenError } from '@/lib/errors'
 
 const checkoutSchema = z.object({
   planId: z.string().min(1, 'Plan ID is required'),
@@ -38,13 +38,25 @@ export async function POST(request: NextRequest) {
       throw new ValidationError('You are already on this plan')
     }
 
+    const currentPlanPrice = existingSub ? Number(existingSub.plan?.price ?? 0) : 0
+    const planPrice = Number(plan.price)
+    const isDowngradeToFree = planPrice === 0
     const checkoutUrl = process.env.STRIPE_CHECKOUT_URL || null
 
-    if (!checkoutUrl) {
+    if (planPrice > 0 && !checkoutUrl && currentPlanPrice < planPrice) {
+      throw new ForbiddenError(
+        'Upgrading to a paid plan requires payment. Configure STRIPE_CHECKOUT_URL to enable paid upgrades.'
+      )
+    }
+
+    if (planPrice === 0 || isDowngradeToFree) {
       if (existingSub) {
         await prisma.subscription.update({
           where: { id: existingSub.id },
-          data: { planId: plan.id },
+          data: {
+            planId: plan.id,
+            status: planPrice === 0 ? 'ACTIVE' : existingSub.status,
+          },
         })
       } else {
         const now = new Date()
@@ -64,15 +76,21 @@ export async function POST(request: NextRequest) {
 
       return successResponse({
         checkoutUrl: null,
-        message: 'Plan updated successfully (Stripe not configured)',
+        message: 'Plan updated successfully',
       })
+    }
+
+    if (!checkoutUrl) {
+      throw new ForbiddenError(
+        'Payment gateway is not configured. Please set STRIPE_CHECKOUT_URL.'
+      )
     }
 
     return successResponse({
       checkoutUrl: `${checkoutUrl}?plan=${plan.id}&workspace=${workspaceId}`,
       planId: plan.id,
       planName: plan.name,
-      price: plan.price,
+      price: planPrice,
       billingCycle: plan.billingCycle,
     })
   } catch (error) {

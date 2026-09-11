@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, ChevronRight, ExternalLink, Search, Globe } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 
 import {
   Card,

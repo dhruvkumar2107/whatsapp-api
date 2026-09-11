@@ -46,10 +46,17 @@ export function requireRole(
   }
 }
 
-export function checkPermission(workspaceId: string, permission: Permission): boolean {
-  // This is a simplified version; in production, you'd check workspace-specific permissions
-  // For now, it returns true if the workspace exists (actual permission check happens via role)
-  return !!workspaceId
+export async function checkPermission(
+  workspaceId: string,
+  permission: Permission,
+  role?: Role
+): Promise<boolean> {
+  if (role) return hasPermission(role, permission)
+
+  const session = await import('@/lib/auth').then((m) => m.auth().then((s) => s)).catch(() => null)
+  const userRole = session?.user?.role as Role | undefined
+  if (!userRole) return false
+  return hasPermission(userRole, permission)
 }
 
 export function hasPermission(userRole: Role, permission: Permission): boolean {

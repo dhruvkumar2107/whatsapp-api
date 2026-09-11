@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: whaatopro-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: whaatopro-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: whaatopro
+      POSTGRES_PASSWORD: whaatopro_secret
+      POSTGRES_DB: whaatopro
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:

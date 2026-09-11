@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface TemplatePreviewProps {
@@ -69,9 +70,11 @@ export function TemplatePreview({
           {headerType === "image" && (
             <div className="mb-2 flex h-40 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-700">
               {header?.imageUrl ? (
-                <img
+                <Image
                   src={header.imageUrl}
                   alt="Header"
+                  width={400}
+                  height={160}
                   className="h-full w-full rounded-lg object-cover"
                 />
               ) : (

@@ -9,7 +9,7 @@ import {
   ValidationError,
   ForbiddenError,
 } from '@/lib/errors'
-import { generateApiKey, hashApiKey } from '@/lib/utils'
+import { generateApiKey } from '@/lib/utils'
 import { PLAN_LIMITS } from '@/lib/constants'
 
 export async function GET() {

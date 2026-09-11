@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PAGINATION_DEFAULTS } from './constants'
-import { UnauthorizedError, handleApiError } from './errors'
+import { UnauthorizedError, ForbiddenError, handleApiError } from './errors'
 import { hashApiKey } from './utils'
 import prisma from './prisma'
+import { incrementUsage, checkAndFailUsageLimit } from './usage'
 
 export function successResponse(data: unknown, status: number = 200) {
   return NextResponse.json({ success: true, data }, { status })
@@ -96,10 +97,17 @@ export async function authenticateApiKey(request: NextRequest) {
     throw new UnauthorizedError('API key has been revoked')
   }
 
+  const usageCheck = await checkAndFailUsageLimit(apiKey.workspaceId, 'apiCallsUsed', 1)
+  if (!usageCheck.allowed) {
+    throw new ForbiddenError(usageCheck.message || 'API call limit reached for your plan')
+  }
+
   await prisma.apiKey.update({
     where: { id: apiKey.id },
     data: { lastUsedAt: new Date() },
   })
+
+  await incrementUsage(apiKey.workspaceId, { apiCallsUsed: 1 })
 
   return {
     workspaceId: apiKey.workspaceId,

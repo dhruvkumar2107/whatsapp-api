@@ -8,7 +8,6 @@ import {
   LayoutGrid,
   List,
   FileText,
-  Loader2,
   Filter,
 } from "lucide-react";
 

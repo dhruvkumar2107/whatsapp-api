@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { decrypt } from '@/lib/encryption'
+import { encrypt, decrypt } from '@/lib/encryption'
 import prisma from '@/lib/prisma'
 import {
   WhatsAppProvider,
@@ -9,6 +9,7 @@ import {
   SendMessageResult,
   SendTemplateParams,
   SendMediaParams,
+  SendInteractiveParams,
   TemplateResult,
   CreateTemplateParams,
   CreateTemplateResult,
@@ -161,7 +162,7 @@ export class MetaProvider implements WhatsAppProvider {
           wabaId: waba.id,
           phoneNumberId: phone.id,
           phoneNumber: phone.display_phone_number,
-          accessToken: longLivedToken.data!.access_token,
+          accessToken: encrypt(longLivedToken.data!.access_token),
           appId: this.getAppId(),
           status: 'CONNECTED',
           qualityRating: phone.quality_rating || null,
@@ -375,6 +376,50 @@ export class MetaProvider implements WhatsAppProvider {
     }
   }
 
+  async sendInteractive(params: SendInteractiveParams): Promise<SendMessageResult> {
+    const account = await prisma.whatsAppAccount.findFirst({
+      where: { phoneNumberId: params.phoneNumberId },
+    })
+
+    if (!account) {
+      throw new Error('WhatsApp account not found')
+    }
+
+    if (account.status !== 'CONNECTED') {
+      throw new Error('WhatsApp account is not connected')
+    }
+
+    const decryptedToken = decrypt(account.accessToken)
+
+    const result = await this.graphApiRequest<{ messages: Array<{ id: string; wa_id: string }> }>(
+      `${params.phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        accessToken: decryptedToken,
+        body: {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: params.to,
+          type: 'interactive',
+          interactive: params.interactive,
+        },
+      }
+    )
+
+    if ('error' in result) {
+      throw this.parseGraphError(result.error)
+    }
+
+    const message = result.data!.messages[0]
+
+    return {
+      messagingProduct: 'whatsapp',
+      whatsappMessageId: message.id,
+      status: 'SENT',
+      timestamp: Math.floor(Date.now() / 1000).toString(),
+    }
+  }
+
   async getTemplates(wabaId: string): Promise<TemplateResult[]> {
     const result = await this.graphApiRequest<{
       data: Array<{
@@ -527,7 +572,8 @@ export class MetaProvider implements WhatsAppProvider {
 
   async processWebhook(
     body: unknown,
-    headers: Record<string, string>
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _headers: Record<string, string>
   ): Promise<WebhookEvent> {
     const payload = body as {
       object?: string

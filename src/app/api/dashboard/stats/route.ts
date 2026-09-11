@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { PLAN_LIMITS } from "@/lib/constants";
+import { cacheGet, cacheSet } from "@/lib/redis";
 
 export async function GET() {
   try {
@@ -13,6 +14,12 @@ export async function GET() {
         { success: false, error: "Unauthorized" },
         { status: 401 }
       );
+    }
+
+    const cacheKey = `dashboard:stats:${workspaceId}`
+    const cached = await cacheGet(cacheKey)
+    if (cached) {
+      return NextResponse.json({ success: true, data: cached });
     }
 
     const now = new Date();
@@ -90,23 +97,27 @@ export async function GET() {
     const deliveryRate = messagesSent > 0 ? (delivered / messagesSent) * 100 : 0;
     const readRate = messagesSent > 0 ? (read / messagesSent) * 100 : 0;
 
+    const stats = {
+      workspaceName: workspace?.name ?? null,
+      whatsappConnected: whatsappAccount?.status === "CONNECTED",
+      messagesSent,
+      delivered,
+      read,
+      failed,
+      messagesToday,
+      activeContacts,
+      activeCampaigns,
+      remainingUsage,
+      planLimit,
+      deliveryRate: Math.round(deliveryRate * 100) / 100,
+      readRate: Math.round(readRate * 100) / 100,
+    };
+
+    await cacheSet(cacheKey, stats, 60);
+
     return NextResponse.json({
       success: true,
-      data: {
-        workspaceName: workspace?.name ?? null,
-        whatsappConnected: whatsappAccount?.status === "CONNECTED",
-        messagesSent,
-        delivered,
-        read,
-        failed,
-        messagesToday,
-        activeContacts,
-        activeCampaigns,
-        remainingUsage,
-        planLimit,
-        deliveryRate: Math.round(deliveryRate * 100) / 100,
-        readRate: Math.round(readRate * 100) / 100,
-      },
+      data: stats,
     });
   } catch (error) {
     console.error("Failed to fetch dashboard stats:", error);

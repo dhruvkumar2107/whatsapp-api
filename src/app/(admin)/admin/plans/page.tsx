@@ -6,9 +6,6 @@ import { Pencil, Plus, Trash2, CreditCard } from "lucide-react";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Table,

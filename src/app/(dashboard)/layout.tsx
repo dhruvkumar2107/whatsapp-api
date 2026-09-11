@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 import { cn } from "@/lib/utils";
+import { GlobalSearch } from "@/components/global-search";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopNav } from "@/components/layout/top-nav";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -53,6 +54,14 @@ export default function DashboardLayout({
 
   return (
     <div className="flex h-svh w-full overflow-hidden bg-muted/40 dark:bg-background">
+      <GlobalSearch />
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-background focus:p-2"
+      >
+        Skip to content
+      </a>
+
       <aside className="hidden shrink-0 lg:block">
         <Sidebar
           currentPath={pathname}
@@ -80,7 +89,7 @@ export default function DashboardLayout({
           workspaceName={shell.workspaceName}
           whatsappConnected={shell.whatsappConnected}
         />
-        <main className="min-h-0 flex-1 overflow-y-auto">
+        <main id="main-content" className="min-h-0 flex-1 overflow-y-auto">
           <div
             className={cn(
               "mx-auto w-full",

@@ -151,6 +151,14 @@ export default function LoginPage() {
                   {errors.password.message}
                 </p>
               )}
+              <div className="flex justify-end">
+                <Link
+                  href="/auth/forgot-password"
+                  className="text-xs font-medium text-emerald-600 transition-colors hover:text-emerald-700"
+                >
+                  Forgot password?
+                </Link>
+              </div>
             </div>
 
             <div className="flex items-center">

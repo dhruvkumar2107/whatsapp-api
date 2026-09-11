@@ -10,7 +10,7 @@ interface RouteContext {
 
 export async function GET(_request: NextRequest, context: RouteContext) {
   try {
-    const { userId } = await requireSuperAdmin();
+    await requireSuperAdmin();
     const { id } = await context.params;
 
     const user = await prisma.user.findUnique({

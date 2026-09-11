@@ -3,10 +3,21 @@ import crypto from 'crypto'
 import { Prisma } from '@prisma/client'
 import prisma from '@/lib/prisma'
 import { createWhatsAppProvider } from '@/lib/whatsapp'
+import { triggerAutomations } from '@/lib/automation/engine'
+import { resumeChatbot, findAndRunChatbot } from '@/lib/chatbot/engine'
+import { dispatchWebhook } from '@/lib/webhooks/dispatcher'
+import { rateLimit } from '@/lib/rate-limit'
+import { notifyConversationEvent } from '@/app/api/conversations/events/route'
 
 const VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || 'default_verify_token'
 
 export async function GET(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const { allowed } = rateLimit(`meta:${ip}`, 100, 60_000)
+  if (!allowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   const { searchParams } = new URL(request.url)
   const mode = searchParams.get('hub.mode')
   const token = searchParams.get('hub.verify_token')
@@ -23,10 +34,23 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const { allowed } = rateLimit(`meta:${ip}`, 100, 60_000)
+  if (!allowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   try {
     const rawBody = await request.text()
 
     const webhookSecret = process.env.META_WEBHOOK_SECRET
+    const isProduction = process.env.NODE_ENV === 'production'
+
+    if (isProduction && !webhookSecret) {
+      console.error('[Webhook] META_WEBHOOK_SECRET is not configured — rejecting in production')
+      return NextResponse.json({ error: 'Webhook misconfigured' }, { status: 500 })
+    }
+
     if (webhookSecret) {
       const signature = request.headers.get('x-hub-signature-256')
       if (!signature) {
@@ -71,7 +95,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error) {
     console.error('Webhook processing error:', error)
-    return NextResponse.json({ success: true }, { status: 200 })
+    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
   }
 }
 
@@ -108,6 +132,8 @@ async function handleIncomingMessage(payload: unknown) {
   if (!account) return
 
   for (const message of data.messages) {
+    const messageText =
+      message.type === 'text' && message.text ? message.text.body : ''
     let contact = await prisma.contact.findFirst({
       where: {
         workspaceId: account.workspaceId,
@@ -124,6 +150,14 @@ async function handleIncomingMessage(payload: unknown) {
           source: 'whatsapp_webhook',
         },
       })
+      void dispatchWebhook(account.workspaceId, 'contact.created', {
+        contact: { id: contact.id, phone: contact.phone, name: contact.name },
+        workspaceId: account.workspaceId,
+      }).catch(() => {})
+      void triggerAutomations(
+        { type: 'contact_created', contact, messageText },
+        account.workspaceId
+      ).catch(() => {})
     }
 
     let conversation = await prisma.conversation.findFirst({
@@ -186,7 +220,7 @@ async function handleIncomingMessage(payload: unknown) {
                 ? 'Document'
                 : 'Message'
 
-    await prisma.message.create({
+    const createdMessage = await prisma.message.create({
       data: {
         conversationId: conversation.id,
         externalId: message.id,
@@ -211,6 +245,31 @@ async function handleIncomingMessage(payload: unknown) {
       where: { id: contact.id },
       data: { lastMessageAt: new Date() },
     })
+
+    notifyConversationEvent(account.workspaceId, 'message.received', {
+      conversationId: conversation.id,
+      message: { id: createdMessage.id, content: createdMessage.content, type: createdMessage.type, direction: createdMessage.direction },
+      contact: { id: contact.id, name: contact.name, phone: contact.phone },
+    })
+
+    void dispatchWebhook(account.workspaceId, 'message.received', {
+      message: { from: message.from, id: message.id, type: messageType, text: preview },
+      contact: { id: contact.id, phone: contact.phone },
+      workspaceId: account.workspaceId,
+    }).catch(() => {})
+
+    void resumeChatbot(account.workspaceId, contact, conversation, messageText)
+      .then(async (resumed) => {
+        if (!resumed) {
+          await findAndRunChatbot(account.workspaceId, contact, conversation, messageText)
+        }
+      })
+      .catch(() => {})
+
+    void triggerAutomations(
+      { type: 'message_received', contact, messageText, variables: { last_message: messageText } },
+      account.workspaceId
+    ).catch(() => {})
   }
 }
 
@@ -227,9 +286,28 @@ async function handleStatusUpdate(payload: unknown) {
         message: string
       }>
     }>
+    metadata?: {
+      phone_number_id?: string
+    }
   }
 
   if (!data.statuses) return
+
+  if (!data.metadata?.phone_number_id) {
+    console.warn('[Webhook] Status update missing phone_number_id — skipping')
+    return
+  }
+
+  const account = await prisma.whatsAppAccount.findFirst({
+    where: { phoneNumberId: data.metadata.phone_number_id },
+    select: { workspaceId: true },
+  })
+  if (!account) {
+    console.warn(`[Webhook] No account found for phone_number_id=${data.metadata.phone_number_id} — skipping`)
+    return
+  }
+
+  const workspaceFilter = { conversation: { workspaceId: account.workspaceId } }
 
   for (const status of data.statuses) {
     const statusMap: Record<string, 'SENT' | 'DELIVERED' | 'READ' | 'FAILED'> = {
@@ -266,10 +344,14 @@ async function handleStatusUpdate(payload: unknown) {
     }
 
     const message = await prisma.message.findFirst({
-      where: { externalId: status.id },
+      where: { externalId: status.id, ...workspaceFilter },
     })
 
     if (message) {
+      const conversation = await prisma.conversation.findUnique({
+        where: { id: message.conversationId },
+      })
+
       await prisma.message.update({
         where: { id: message.id },
         data: updateData,
@@ -286,6 +368,45 @@ async function handleStatusUpdate(payload: unknown) {
           },
         },
       })
+
+      if (conversation && (mappedStatus === 'DELIVERED' || mappedStatus === 'READ' || mappedStatus === 'FAILED')) {
+        const recipient = await prisma.campaignRecipient.findFirst({
+          where: { messageId: message.id },
+        })
+        if (recipient) {
+          await prisma.campaignRecipient.update({
+            where: { id: recipient.id },
+            data: {
+              status:
+                mappedStatus === 'READ'
+                  ? 'READ'
+                  : mappedStatus === 'FAILED'
+                    ? 'FAILED'
+                    : 'DELIVERED',
+              deliveredAt: mappedStatus === 'DELIVERED' || mappedStatus === 'READ' ? new Date() : recipient.deliveredAt,
+              readAt: mappedStatus === 'READ' ? new Date() : recipient.readAt,
+            },
+          })
+          const campaignUpdate: Record<string, unknown> = {}
+          if (mappedStatus === 'DELIVERED') campaignUpdate.delivered = { increment: 1 }
+          if (mappedStatus === 'READ') campaignUpdate.read = { increment: 1 }
+          if (mappedStatus === 'FAILED') campaignUpdate.failed = { increment: 1 }
+          if (Object.keys(campaignUpdate).length > 0) {
+            await prisma.campaign.update({
+              where: { id: recipient.campaignId },
+              data: campaignUpdate,
+            })
+          }
+        }
+      }
+
+      if (conversation) {
+        void dispatchWebhook(conversation.workspaceId, `message.${mappedStatus.toLowerCase()}`, {
+          message: { id: message.id, externalId: message.externalId, status: mappedStatus },
+          contact: { id: conversation.contactId },
+          workspaceId: conversation.workspaceId,
+        }).catch(() => {})
+      }
     }
   }
 }
@@ -318,8 +439,42 @@ async function handleTemplateStatus(payload: unknown) {
 
   const mappedStatus = statusMap[status.toLowerCase()] || 'PENDING'
 
+  // NOTE: metaTemplateId is a global Meta identifier, not scoped to a workspace.
+  // This update is intentionally global — a template rejection should apply everywhere.
   await prisma.template.updateMany({
     where: { metaTemplateId: message_template_id },
     data: { status: mappedStatus },
   })
+
+  if (mappedStatus === 'APPROVED' || mappedStatus === 'REJECTED') {
+    const template = await prisma.template.findFirst({
+      where: { metaTemplateId: message_template_id },
+    })
+    if (template) {
+      const waba = await prisma.whatsAppAccount.findFirst({
+        where: { id: template.wabaAccountId ?? '' },
+      })
+      if (waba) {
+        const member = await prisma.workspaceMember.findFirst({
+          where: { workspaceId: waba.workspaceId },
+          orderBy: { createdAt: 'asc' },
+        })
+        if (member) {
+          await prisma.notification.create({
+            data: {
+              userId: member.userId,
+              workspaceId: waba.workspaceId,
+              type: mappedStatus === 'APPROVED' ? 'TEMPLATE_APPROVED' : 'TEMPLATE_REJECTED',
+              title: mappedStatus === 'APPROVED' ? 'Template approved' : 'Template rejected',
+              message:
+                mappedStatus === 'APPROVED'
+                  ? `Your template "${template.name}" has been approved.`
+                  : `Your template "${template.name}" was rejected.`,
+              data: { templateId: template.id },
+            },
+          })
+        }
+      }
+    }
+  }
 }

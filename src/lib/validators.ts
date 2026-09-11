@@ -140,6 +140,7 @@ export const webhookSchema = z.object({
       'message.failed',
       'contact.created',
       'contact.updated',
+      'campaign.started',
       'campaign.completed',
       'campaign.failed',
     ])

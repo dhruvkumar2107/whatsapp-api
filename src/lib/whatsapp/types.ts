@@ -4,6 +4,7 @@ export interface WhatsAppProvider {
   sendMessage(params: SendMessageParams): Promise<SendMessageResult>
   sendTemplate(params: SendTemplateParams): Promise<SendMessageResult>
   sendMedia(params: SendMediaParams): Promise<SendMessageResult>
+  sendInteractive(params: SendInteractiveParams): Promise<SendMessageResult>
   getTemplates(wabaId: string): Promise<TemplateResult[]>
   createTemplate(params: CreateTemplateParams): Promise<CreateTemplateResult>
   getAccountStatus(phoneNumberId: string): Promise<AccountStatus>
@@ -67,6 +68,12 @@ export interface SendMediaParams {
   mediaUrl: string
   caption?: string
   filename?: string
+}
+
+export interface SendInteractiveParams {
+  phoneNumberId: string
+  to: string
+  interactive: Record<string, unknown>
 }
 
 export interface TemplateResult {

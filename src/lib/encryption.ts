@@ -2,10 +2,7 @@ import crypto from 'crypto'
 
 const ALGORITHM = 'aes-256-gcm'
 const IV_LENGTH = 16
-const SALT_LENGTH = 64
-const TAG_LENGTH = 16
 const KEY_LENGTH = 32
-const ITERATIONS = 100000
 
 function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY
@@ -14,7 +11,7 @@ function getEncryptionKey(): Buffer {
   }
   return Buffer.from(key, 'hex').length === KEY_LENGTH
     ? Buffer.from(key, 'hex')
-    : crypto.scryptSync(key, 'salt', KEY_LENGTH)
+    : crypto.scryptSync(key, crypto.createHash('sha256').update(key).digest(), KEY_LENGTH)
 }
 
 export function encrypt(text: string): string {

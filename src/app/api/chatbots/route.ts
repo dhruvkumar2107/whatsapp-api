@@ -1,8 +1,10 @@
 import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import prisma from '@/lib/prisma'
-import { handleApiError } from '@/lib/errors'
+import { handleApiError, ValidationError } from '@/lib/errors'
 import { successResponse, errorResponse, paginateResponse, getSearchParams } from '@/lib/api-utils'
+import { requirePermission } from '@/lib/permissions'
+import { chatbotSchema } from '@/lib/validators'
 
 export async function GET(request: NextRequest) {
   try {
@@ -46,19 +48,21 @@ export async function POST(request: NextRequest) {
     if (!workspaceId) {
       return errorResponse('Unauthorized', 401)
     }
+    requirePermission(session?.user?.role, 'chatbot:manage')
 
-    const body = await request.json()
-    const { name, description } = body
-
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return errorResponse('Name is required', 400)
+    const body = await request.json().catch(() => null)
+    const parsed = chatbotSchema.safeParse(body)
+    if (!parsed.success) {
+      throw new ValidationError(parsed.error.flatten().fieldErrors as Record<string, string[]>)
     }
+
+    const { name, isActive } = parsed.data
 
     const chatbot = await prisma.chatbot.create({
       data: {
         workspaceId,
-        name: name.trim(),
-        description: description?.trim() || null,
+        name,
+        isActive,
       },
     })
 

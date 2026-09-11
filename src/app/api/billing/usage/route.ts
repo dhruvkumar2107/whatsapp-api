@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma'
 import { successResponse } from '@/lib/api-utils'
 import { handleApiError, UnauthorizedError } from '@/lib/errors'
 import { PLAN_LIMITS } from '@/lib/constants'
+import { getUsageWarnings } from '@/lib/usage'
 
 export async function GET() {
   try {
@@ -13,7 +14,7 @@ export async function GET() {
     const now = new Date()
     const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
-    const [subscription, usage] = await Promise.all([
+    const [subscription, usage, warnings] = await Promise.all([
       prisma.subscription.findFirst({
         where: { workspaceId, status: { in: ['ACTIVE', 'TRIALING'] } },
         orderBy: { createdAt: 'desc' },
@@ -22,6 +23,7 @@ export async function GET() {
       prisma.usage.findUnique({
         where: { workspaceId_period: { workspaceId, period } },
       }),
+      getUsageWarnings(workspaceId),
     ])
 
     const planName = subscription?.plan?.name?.toUpperCase() || 'FREE'
@@ -46,6 +48,7 @@ export async function GET() {
       period,
       currentUsage,
       planLimits,
+      warnings,
       subscription: subscription
         ? {
             planName: subscription.plan.name,

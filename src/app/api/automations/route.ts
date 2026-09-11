@@ -1,8 +1,10 @@
 import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import prisma from '@/lib/prisma'
-import { handleApiError } from '@/lib/errors'
+import { handleApiError, ValidationError } from '@/lib/errors'
 import { successResponse, errorResponse, paginateResponse, getSearchParams } from '@/lib/api-utils'
+import { requirePermission } from '@/lib/permissions'
+import { automationSchema } from '@/lib/validators'
 
 export async function GET(request: NextRequest) {
   try {
@@ -51,31 +53,25 @@ export async function POST(request: NextRequest) {
     if (!workspaceId) {
       return errorResponse('Unauthorized', 401)
     }
+    requirePermission(session?.user?.role, 'automations:manage')
 
-    const body = await request.json()
-    const { name, description, trigger, conditions, actions, isActive } = body
-
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return errorResponse('Name is required', 400)
+    const body = await request.json().catch(() => null)
+    const parsed = automationSchema.safeParse(body)
+    if (!parsed.success) {
+      throw new ValidationError(parsed.error.flatten().fieldErrors as Record<string, string[]>)
     }
 
-    if (!trigger || !trigger.type) {
-      return errorResponse('Trigger is required', 400)
-    }
-
-    if (!Array.isArray(actions) || actions.length === 0) {
-      return errorResponse('At least one action is required', 400)
-    }
+    const { name, description, trigger, actions, isActive } = parsed.data
 
     const automation = await prisma.automation.create({
       data: {
         workspaceId,
-        name: name.trim(),
-        description: description?.trim() || null,
-        isActive: isActive ?? false,
-        trigger,
-        conditions: conditions || null,
-        actions,
+        name,
+        description: description || null,
+        isActive,
+        trigger: trigger as unknown as object,
+        conditions: undefined,
+        actions: actions as unknown as object[],
       },
     })
 

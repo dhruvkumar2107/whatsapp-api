@@ -43,6 +43,22 @@ export async function POST() {
       },
     })
 
+    const member = await prisma.workspaceMember.findFirst({
+      where: { workspaceId: session.user.workspaceId! },
+      orderBy: { createdAt: 'asc' },
+    })
+    if (member) {
+      await prisma.notification.create({
+        data: {
+          userId: member.userId,
+          workspaceId: session.user.workspaceId!,
+          type: 'WHATSAPP_DISCONNECTED',
+          title: 'WhatsApp disconnected',
+          message: 'Your WhatsApp connection has been disconnected.',
+        },
+      })
+    }
+
     return NextResponse.json({
       success: true,
       data: { message: 'WhatsApp account disconnected successfully' },

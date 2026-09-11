@@ -1,7 +1,9 @@
 import prisma from '@/lib/prisma'
-import { createQueue, enqueue } from '@/lib/queue'
+import { enqueueJob, createWorker } from '@/lib/queue'
 import { createWhatsAppProvider } from '@/lib/whatsapp'
+import { notifyConversationEvent } from '@/app/api/conversations/events/route'
 import type { TemplateComponentParam } from '@/lib/whatsapp/types'
+import type { Job } from 'bullmq'
 
 export interface MessageJob {
   messageId: string
@@ -49,6 +51,19 @@ export async function processOutgoingMessage(job: MessageJob): Promise<void> {
         text: String(content.text ?? ''),
       })
       externalId = result.whatsappMessageId
+    } else if (message.type === 'INTERACTIVE') {
+      const rawInteractive = content.interactive
+      const interactivePayload = (typeof rawInteractive === 'string'
+        ? JSON.parse(rawInteractive)
+        : typeof rawInteractive === 'object' && rawInteractive !== null
+          ? rawInteractive
+          : {}) as Record<string, unknown>
+      const result = await provider.sendInteractive({
+        phoneNumberId,
+        to,
+        interactive: interactivePayload,
+      })
+      externalId = result.whatsappMessageId
     } else if (message.type === 'TEMPLATE') {
       const result = await provider.sendTemplate({
         phoneNumberId,
@@ -73,7 +88,7 @@ export async function processOutgoingMessage(job: MessageJob): Promise<void> {
       return
     }
 
-    const sent = await prisma.message.update({
+    await prisma.message.update({
       where: { id: message.id },
       data: {
         status: 'SENT',
@@ -81,6 +96,11 @@ export async function processOutgoingMessage(job: MessageJob): Promise<void> {
         sentAt: new Date(),
         errorMessage: null,
       },
+    })
+
+    notifyConversationEvent(conversation.workspaceId, 'message.sent', {
+      conversationId: message.conversationId,
+      message: { id: message.id, status: 'SENT' },
     })
 
     await prisma.messageEvent.create({
@@ -120,11 +140,38 @@ export async function processOutgoingMessage(job: MessageJob): Promise<void> {
     }
   } catch (error) {
     const messageText = error instanceof Error ? error.message : 'Unknown send error'
-    await markMessageFailed(message.id, messageText)
+
+    await prisma.messageEvent.create({
+      data: {
+        messageId: message.id,
+        event: 'FAILED',
+        timestamp: new Date(),
+        metadata: { error: messageText, attempt: true },
+      },
+    })
+
+    const failedAttempts = await prisma.messageEvent.count({
+      where: { messageId: message.id, event: 'FAILED' },
+    })
+
+    if (failedAttempts >= 3) {
+      await markMessageFailed(message.id, messageText)
+      return
+    }
+    await prisma.message.update({
+      where: { id: message.id },
+      data: { status: 'QUEUED', errorMessage: messageText },
+    })
+    throw error
   }
 }
 
 async function markMessageFailed(messageId: string, errorMessage: string): Promise<void> {
+  const message = await prisma.message.findUnique({
+    where: { id: messageId },
+    select: { id: true, conversationId: true },
+  })
+
   await prisma.message.update({
     where: { id: messageId },
     data: { status: 'FAILED', errorMessage },
@@ -138,6 +185,26 @@ async function markMessageFailed(messageId: string, errorMessage: string): Promi
       metadata: { error: errorMessage },
     },
   })
+
+  if (message) {
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: message.conversationId },
+      select: { assignedAgentId: true, workspaceId: true, contact: { select: { phone: true } } },
+    })
+
+    if (conversation?.assignedAgentId) {
+      await prisma.notification.create({
+        data: {
+          userId: conversation.assignedAgentId,
+          workspaceId: conversation.workspaceId,
+          type: 'MESSAGE_FAILED',
+          title: 'Message failed',
+          message: `Message to ${conversation.contact.phone} failed to send.`,
+          data: { messageId: message.id },
+        },
+      })
+    }
+  }
 }
 
 function contentPreview(type: string, content: Record<string, unknown>): string {
@@ -146,14 +213,26 @@ function contentPreview(type: string, content: Record<string, unknown>): string 
   if (type === 'VIDEO') return 'Video'
   if (type === 'AUDIO') return 'Voice message'
   if (type === 'DOCUMENT') return String(content.filename ?? 'Document')
+  if (type === 'INTERACTIVE') {
+    const text = content.text
+    return typeof text === 'string' ? text.slice(0, 80) : 'Interactive message'
+  }
   const text = content.text
   return typeof text === 'string' ? text.slice(0, 80) : type
 }
 
 export function initMessageWorker(): void {
-  createQueue('messages', processOutgoingMessage)
+  createWorker('messages', async (job: Job) => {
+    const data = job.data as MessageJob
+    await processOutgoingMessage(data)
+  })
 }
 
-export function enqueueMessage(messageId: string, conversationId: string): Promise<string> {
-  return enqueue('messages', { messageId, conversationId } satisfies MessageJob)
+export async function enqueueMessage(messageId: string, conversationId: string): Promise<string> {
+  const job = await enqueueJob('messages', {
+    id: `${messageId}-${Date.now()}`,
+    type: 'process-outgoing',
+    payload: { messageId, conversationId },
+  })
+  return job.id?.toString() ?? ''
 }

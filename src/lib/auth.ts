@@ -5,6 +5,7 @@ import prisma from './prisma'
 import { loginSchema } from './validators'
 import { ROLES } from './constants'
 import type { Role } from './constants'
+import { createAuditLog } from './audit'
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -54,6 +55,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    async signIn({ user, account }) {
+      if (account && user) {
+        const member = await prisma.workspaceMember.findFirst({
+          where: { userId: user.id as string },
+        })
+        if (member) {
+          await createAuditLog({
+            workspaceId: member.workspaceId,
+            userId: user.id as string,
+            action: 'LOGIN',
+            resource: 'auth',
+            resourceId: user.id as string,
+            metadata: { provider: account.provider },
+          })
+        }
+      }
+      return true
+    },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id ?? ''
@@ -66,7 +85,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (session.user) {
         session.user.id = token.id as string
         session.user.workspaceId = token.workspaceId as string
-        session.user.role = token.role as Role
+
+        const member = await prisma.workspaceMember.findFirst({
+          where: { userId: token.id as string },
+          orderBy: { createdAt: 'asc' },
+        })
+        session.user.role = ((member?.role as string) || (token.role as string)) as Role
       }
       return session
     },
@@ -78,6 +102,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
     strategy: 'jwt',
   },
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.session-token' : 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+  },
   trustHost: true,
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
 })

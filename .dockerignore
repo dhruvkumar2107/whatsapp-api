@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.github
+.vercel
+.env*
+!.env.example
+out
+build
+*.md
+.claude
+.agents
+.cursor
+.devin

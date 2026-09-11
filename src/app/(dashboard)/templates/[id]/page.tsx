@@ -9,7 +9,6 @@ import {
   Save,
   Send,
   Trash2,
-  RotateCcw,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { TemplatePreview } from "@/components/templates/template-preview";
-import { formatDate, cn } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 
 interface Template {
   id: string;

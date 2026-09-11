@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { handleApiError, UnauthorizedError } from '@/lib/errors'
 import prisma from '@/lib/prisma'
-import { decrypt } from '@/lib/encryption'
 import { createWhatsAppProvider } from '@/lib/whatsapp'
 
 export async function GET() {

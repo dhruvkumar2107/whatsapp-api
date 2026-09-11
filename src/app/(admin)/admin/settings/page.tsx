@@ -64,39 +64,87 @@ const defaultSettings: Settings = {
   featureApiKeys: true,
 };
 
-const STORAGE_KEY = "whaatopro-admin-settings";
-
 export default function AdminSettingsPage() {
   const [settings, setSettings] = React.useState<Settings>(defaultSettings);
   const [loaded, setLoaded] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        setSettings({ ...defaultSettings, ...JSON.parse(raw) });
-      }
-    } catch {
-      // ignore corrupt storage
-    }
-    setLoaded(true);
+    fetch("/api/admin/settings")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) {
+          const s = json.data;
+          setSettings({
+            platformName: s.platformName,
+            supportEmail: s.supportEmail,
+            timezone: s.timezone,
+            maintenanceMode: s.maintenanceMode,
+            registrationOpen: s.registrationOpen,
+            whatsappAppId: s.whatsappAppId,
+            dashboardRateLimit: String(s.rateLimit),
+            webhookTimeout: String(s.webhookTimeout),
+            emailFrom: s.emailHost,
+            emailEnabled: s.emailEnabled,
+            emailDailyDigest: false,
+            featureInbox: s.features?.chatbotEnabled ?? true,
+            featureCampaigns: s.features?.campaignsEnabled ?? true,
+            featureChatbot: s.features?.chatbotEnabled ?? true,
+            featureAutomation: s.features?.automationEnabled ?? true,
+            featureTemplates: true,
+            featureApiKeys: s.features?.apiAccessEnabled ?? true,
+          });
+        }
+      })
+      .catch(() => {
+        // keep defaults on network error
+      })
+      .finally(() => setLoaded(true));
   }, []);
-
-  React.useEffect(() => {
-    if (!loaded) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    } catch {
-      // ignore quota errors
-    }
-  }, [settings, loaded]);
 
   function update<K extends keyof Settings>(key: K, value: Settings[K]) {
     setSettings((s) => ({ ...s, [key]: value }));
   }
 
-  function handleSave() {
-    toast({ title: "Settings saved", description: "Platform settings have been updated." });
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const payload = {
+        platformName: settings.platformName,
+        supportEmail: settings.supportEmail,
+        timezone: settings.timezone,
+        maintenanceMode: settings.maintenanceMode,
+        registrationOpen: settings.registrationOpen,
+        whatsappAppId: settings.whatsappAppId,
+        rateLimit: Number(settings.dashboardRateLimit) || 60,
+        webhookTimeout: Number(settings.webhookTimeout) || 30,
+        emailEnabled: settings.emailEnabled,
+        emailHost: settings.emailFrom,
+        emailPort: 587,
+        features: {
+          chatbotEnabled: settings.featureChatbot,
+          automationEnabled: settings.featureAutomation,
+          campaignsEnabled: settings.featureCampaigns,
+          apiAccessEnabled: settings.featureApiKeys,
+        },
+      };
+
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast({ title: "Settings saved", description: "Platform settings have been updated." });
+      } else {
+        toast({ title: "Failed to save", description: json.error?.message ?? "Unknown error", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Failed to save", description: "Network error.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (!loaded) return null;
@@ -110,8 +158,8 @@ export default function AdminSettingsPage() {
             Manage platform-wide configuration.
           </p>
         </div>
-        <Button onClick={handleSave}>
-          <Save className="size-4" /> Save Changes
+        <Button onClick={handleSave} disabled={saving}>
+          <Save className="size-4" /> {saving ? "Saving..." : "Save Changes"}
         </Button>
       </div>
 

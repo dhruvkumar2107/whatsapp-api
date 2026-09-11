@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { handleApiError } from '@/lib/errors'
 import { successResponse, errorResponse } from '@/lib/api-utils'
+import { requirePermission } from '@/lib/permissions'
 
 export async function POST(
   _request: NextRequest,
@@ -14,6 +15,7 @@ export async function POST(
     if (!workspaceId) {
       return errorResponse('Unauthorized', 401)
     }
+    requirePermission(session?.user?.role, 'chatbot:manage')
 
     const { id } = await params
 

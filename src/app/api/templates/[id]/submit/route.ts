@@ -50,6 +50,7 @@ export async function POST(
       type: "HEADER" | "BODY" | "BUTTON" | "FOOTER";
       text?: string;
       parameters?: Array<{ type: string; example?: string }>;
+      buttons?: Array<{ type: string; text: string; url?: string }>;
     }> = [];
 
     const header = template.header as { type?: string; text?: string } | null;
@@ -64,6 +65,19 @@ export async function POST(
 
     if (template.footer) {
       components.push({ type: "FOOTER", text: template.footer });
+    }
+
+    if (template.buttons) {
+      const buttonsData = template.buttons as Array<{ type: string; text: string; url?: string }>;
+      if (Array.isArray(buttonsData) && buttonsData.length > 0) {
+        for (const btn of buttonsData) {
+          components.push({
+            type: "BUTTON",
+            text: btn.text,
+            ...(btn.url ? { url: btn.url } : {}),
+          });
+        }
+      }
     }
 
     const result = await provider.createTemplate({

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { enqueueCampaign } from "@/lib/workers/campaign-worker";
 import { successResponse } from "@/lib/api-utils";
 import {
   handleApiError,
@@ -8,6 +9,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "@/lib/errors";
+import { requirePermission } from '@/lib/permissions';
 
 export async function POST(
   _request: NextRequest,
@@ -17,6 +19,7 @@ export async function POST(
     const session = await auth();
     const workspaceId = session?.user?.workspaceId;
     if (!workspaceId) throw new UnauthorizedError();
+    requirePermission(session?.user?.role, "campaigns:schedule");
 
     const { id } = await params;
 
@@ -36,6 +39,8 @@ export async function POST(
       where: { id },
       data: { status: "RUNNING" },
     });
+
+    await enqueueCampaign(id);
 
     return successResponse(updated);
   } catch (error) {

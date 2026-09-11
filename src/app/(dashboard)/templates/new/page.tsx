@@ -4,7 +4,6 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  Plus,
   Trash2,
   Loader2,
   Save,
@@ -32,7 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { TemplatePreview } from "@/components/templates/template-preview";
 import { cn } from "@/lib/utils";
 

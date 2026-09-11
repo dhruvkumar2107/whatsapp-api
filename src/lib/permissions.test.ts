@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { hasPermission, requirePermission } from '@/lib/permissions'
 import { PERMISSIONS, ROLES } from '@/lib/constants'
 import { ForbiddenError } from '@/lib/errors'

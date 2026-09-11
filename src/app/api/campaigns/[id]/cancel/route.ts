@@ -8,6 +8,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "@/lib/errors";
+import { requirePermission } from '@/lib/permissions';
 
 export async function POST(
   _request: NextRequest,
@@ -17,6 +18,7 @@ export async function POST(
     const session = await auth();
     const workspaceId = session?.user?.workspaceId;
     if (!workspaceId) throw new UnauthorizedError();
+    requirePermission(session?.user?.role, "campaigns:schedule");
 
     const { id } = await params;
 

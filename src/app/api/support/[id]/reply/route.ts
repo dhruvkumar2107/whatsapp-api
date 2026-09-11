@@ -48,6 +48,11 @@ export async function POST(
       throw new ValidationError(parsed.error.flatten().fieldErrors as Record<string, string[]>)
     }
 
+    const ticketWithUser = await prisma.supportTicket.findUnique({
+      where: { id },
+      select: { userId: true, workspaceId: true, subject: true },
+    })
+
     const reply = await prisma.supportTicketReply.create({
       data: {
         ticketId: id,
@@ -58,6 +63,19 @@ export async function POST(
         user: { select: { id: true, name: true, email: true, image: true } },
       },
     })
+
+    if (ticketWithUser && ticketWithUser.userId !== userId) {
+      await prisma.notification.create({
+        data: {
+          userId: ticketWithUser.userId,
+          workspaceId: ticketWithUser.workspaceId,
+          type: 'SUPPORT_REPLY',
+          title: 'Support ticket reply',
+          message: `Your ticket "${ticketWithUser.subject}" has received a reply.`,
+          data: { ticketId: id },
+        },
+      })
+    }
 
     return successResponse(reply, 201)
   } catch (error) {

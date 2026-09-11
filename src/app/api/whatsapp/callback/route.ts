@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { handleApiError, BadRequestError } from '@/lib/errors'
+import { BadRequestError } from '@/lib/errors'
 import { createWhatsAppProvider } from '@/lib/whatsapp'
 import prisma from '@/lib/prisma'
 
@@ -8,7 +8,6 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const code = searchParams.get('code')
-    const state = searchParams.get('state')
     const error = searchParams.get('error')
 
     if (error) {

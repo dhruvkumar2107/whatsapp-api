@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { cacheGet, cacheSet } from "@/lib/redis";
 
 interface DayBucket {
   date: string;
@@ -32,6 +33,12 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const rawDays = Number.parseInt(searchParams.get("days") ?? "30", 10);
     const days = Number.isNaN(rawDays) ? 30 : Math.min(90, Math.max(1, rawDays));
+
+    const cacheKey = `dashboard:chart:${workspaceId}:${days}`
+    const cached = await cacheGet(cacheKey)
+    if (cached) {
+      return NextResponse.json({ success: true, ...cached as { data: DayBucket[]; days: number } });
+    }
 
     const start = new Date();
     start.setHours(0, 0, 0, 0);
@@ -68,6 +75,8 @@ export async function GET(request: NextRequest) {
     }
 
     const data = Array.from(bucketMap.values());
+
+    await cacheSet(cacheKey, { data, days }, 60);
 
     return NextResponse.json({ success: true, data, days });
   } catch (error) {

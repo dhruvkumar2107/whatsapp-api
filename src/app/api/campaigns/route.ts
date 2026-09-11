@@ -5,6 +5,7 @@ import { campaignSchema } from "@/lib/validators";
 import { successResponse, paginateResponse, getSearchParams } from "@/lib/api-utils";
 import { handleApiError, UnauthorizedError, ValidationError } from "@/lib/errors";
 import { PLAN_LIMITS } from "@/lib/constants";
+import { requirePermission } from '@/lib/permissions'
 
 export async function GET(request: NextRequest) {
   try {
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
     const session = await auth();
     const workspaceId = session?.user?.workspaceId;
     if (!workspaceId) throw new UnauthorizedError();
+    requirePermission(session?.user?.role, "campaigns:create");
 
     const body = await request.json();
     const parsed = campaignSchema.safeParse(body);

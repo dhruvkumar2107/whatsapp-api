@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import crypto from 'crypto'
 import { encrypt, decrypt, hashString, generateRandomToken } from '@/lib/encryption'
 
 const ENCRYPTION_KEY = 'a'.repeat(32)

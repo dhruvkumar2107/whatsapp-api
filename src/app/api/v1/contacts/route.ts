@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server'
-import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import prisma from '@/lib/prisma'
 import { contactSchema } from '@/lib/validators'
@@ -97,7 +96,7 @@ export async function POST(request: NextRequest) {
       throw new ValidationError(parsed.error.flatten().fieldErrors as Record<string, string[]>)
     }
 
-    const { name, phone, email, country, source, optIn, tags } = parsed.data
+    const { name, phone, email, country, source, optIn } = parsed.data
 
     const existing = await prisma.contact.findUnique({
       where: { workspaceId_phone: { workspaceId: authData.workspaceId, phone } },

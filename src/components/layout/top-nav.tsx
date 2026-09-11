@@ -14,6 +14,7 @@ import {
   Settings,
   User,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -32,20 +33,63 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 interface TopNavProps {
   workspaceName?: string;
   whatsappConnected?: boolean;
-  notificationCount?: number;
   onMenuToggle?: () => void;
   className?: string;
+}
+
+interface NotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
 }
 
 export function TopNav({
   workspaceName,
   whatsappConnected = true,
-  notificationCount = 0,
   onMenuToggle,
   className,
 }: TopNavProps) {
   const { data: session } = useSession();
   const user = session?.user;
+  const [notifications, setNotifications] = React.useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = React.useState(0);
+  const [mockMode, setMockMode] = React.useState(false);
+
+  React.useEffect(() => {
+    fetch("/api/system/status")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (body?.mockMode) setMockMode(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  const loadNotifications = React.useCallback(() => {
+    fetch("/api/notifications?limit=8")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (body?.data) {
+          setNotifications(body.data);
+          setUnreadCount(body.data.filter((n: NotificationItem) => !n.isRead).length);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  React.useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [loadNotifications]);
+
+  const markAllRead = React.useCallback(() => {
+    void fetch("/api/notifications/read", { method: "POST" })
+      .then(() => loadNotifications())
+      .catch(() => {});
+  }, [loadNotifications]);
 
   const initials =
     user?.name?.split(" ").map((p) => p.charAt(0)).slice(0, 2).join("").toUpperCase() ??
@@ -106,6 +150,13 @@ export function TopNav({
           </DropdownMenuContent>
         </DropdownMenu>
 
+        {mockMode && (
+          <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 text-xs font-semibold text-red-600 dark:text-red-400">
+            <span className="size-1.5 rounded-full bg-red-500 shadow-[0_0_6px] shadow-red-500/60" />
+            MOCK MODE
+          </span>
+        )}
+
         <span
           className={cn(
             "inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium",
@@ -127,30 +178,70 @@ export function TopNav({
       </div>
 
       <div className="flex items-center gap-1">
+        <ThemeToggle />
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
               className="relative text-muted-foreground"
-              aria-label={`${notificationCount} notifications`}
+              aria-label={`${unreadCount} notifications`}
             >
               <Bell className="size-5" />
-              {notificationCount > 0 && (
+              {unreadCount > 0 && (
                 <Badge className="absolute -right-0.5 -top-0.5 size-4 min-w-4 items-center justify-center rounded-full p-0 text-[10px] font-bold">
-                  {notificationCount > 99 ? "99+" : notificationCount}
+                  {unreadCount > 99 ? "99+" : unreadCount}
                 </Badge>
               )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+            <DropdownMenuLabel>
+              <div className="flex items-center justify-between">
+                <span>Notifications</span>
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={markAllRead}
+                    className="text-xs font-normal text-emerald-600 hover:underline dark:text-emerald-400"
+                  >
+                    Mark all read
+                  </button>
+                )}
+              </div>
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {notificationCount > 0 ? (
-              <DropdownMenuItem>
-                {notificationCount} unread notification
-                {notificationCount === 1 ? "" : "s"}
-              </DropdownMenuItem>
+            {notifications.length > 0 ? (
+              <div className="max-h-80 overflow-y-auto">
+                {notifications.map((notification) => (
+                  <DropdownMenuItem key={notification.id} className="items-start gap-2 py-2">
+                    <span
+                      className={
+                        notification.isRead
+                          ? "mt-1.5 size-1.5 shrink-0 rounded-full bg-transparent"
+                          : "mt-1.5 size-1.5 shrink-0 rounded-full bg-emerald-500"
+                      }
+                    />
+                    <span className="flex min-w-0 flex-col">
+                      <span
+                        className={cn(
+                          "text-sm",
+                          notification.isRead ? "font-normal" : "font-semibold"
+                        )}
+                      >
+                        {notification.title}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {notification.message}
+                      </span>
+                      <span className="mt-0.5 text-[11px] text-muted-foreground/70">
+                        {new Date(notification.createdAt).toLocaleString()}
+                      </span>
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+              </div>
             ) : (
               <div className="flex flex-col items-center gap-1 px-2 py-6 text-center">
                 <Bell className="size-5 text-muted-foreground" />

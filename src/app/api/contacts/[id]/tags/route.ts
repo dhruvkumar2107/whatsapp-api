@@ -9,6 +9,8 @@ import {
   NotFoundError,
   ValidationError,
 } from '@/lib/errors'
+import { requirePermission } from '@/lib/permissions'
+import { PERMISSIONS } from '@/lib/constants'
 import { contactSummary, resolveWorkspaceTags } from '@/lib/contacts'
 
 const addTagsSchema = z.object({
@@ -28,6 +30,8 @@ export async function POST(
     const session = await auth()
     const workspaceId = session?.user?.workspaceId
     if (!workspaceId) throw new UnauthorizedError()
+
+    requirePermission(session?.user?.role, PERMISSIONS.CONTACTS_MANAGE)
 
     const { id } = await params
 
@@ -85,6 +89,8 @@ export async function DELETE(
     const session = await auth()
     const workspaceId = session?.user?.workspaceId
     if (!workspaceId) throw new UnauthorizedError()
+
+    requirePermission(session?.user?.role, PERMISSIONS.CONTACTS_MANAGE)
 
     const { id } = await params
 

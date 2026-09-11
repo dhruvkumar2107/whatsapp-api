@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import crypto from 'crypto'
 import { auth } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { successResponse } from '@/lib/api-utils'
@@ -41,7 +42,8 @@ export async function POST(
       'User-Agent': 'Whaatopro-Webhook/1.0',
     }
     if (webhook.secret) {
-      headers['X-Webhook-Secret'] = webhook.secret
+      const signature = crypto.createHmac('sha256', webhook.secret).update(JSON.stringify(payload)).digest('hex')
+      headers['X-Webhook-Signature'] = `sha256=${signature}`
     }
 
     let statusCode: number | null = null

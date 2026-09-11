@@ -20,7 +20,6 @@ import {
   ChevronRight,
   Eye,
   Gauge,
-  Loader2,
   Megaphone,
   MessageSquare,
   Send,

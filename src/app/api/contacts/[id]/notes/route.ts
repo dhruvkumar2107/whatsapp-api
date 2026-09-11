@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import prisma from '@/lib/prisma'
-import { successResponse } from '@/lib/api-utils'
+import { successResponse, getSearchParams, paginateResponse } from '@/lib/api-utils'
 import {
   handleApiError,
   UnauthorizedError,
@@ -15,7 +15,7 @@ const createNoteSchema = z.object({
 })
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -31,13 +31,21 @@ export async function GET(
     })
     if (!contact) throw new NotFoundError('Contact')
 
-    const notes = await prisma.note.findMany({
-      where: { contactId: id },
-      orderBy: { createdAt: 'desc' },
-      include: { user: { select: { id: true, name: true, email: true } } },
-    })
+    const { page, limit } = getSearchParams(request)
+    const skip = (page - 1) * limit
 
-    return successResponse(notes)
+    const [notes, total] = await Promise.all([
+      prisma.note.findMany({
+        where: { contactId: id },
+        orderBy: { createdAt: 'desc' },
+        include: { user: { select: { id: true, name: true, email: true } } },
+        skip,
+        take: limit,
+      }),
+      prisma.note.count({ where: { contactId: id } }),
+    ])
+
+    return paginateResponse(notes, total, page, limit)
   } catch (error) {
     return handleApiError(error)
   }

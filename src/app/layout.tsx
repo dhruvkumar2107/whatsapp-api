@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
+import { ThemeProvider } from "next-themes";
 import { auth } from "@/lib/auth";
 import { ToastProvider, Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -26,16 +27,18 @@ export default async function RootLayout({
   const session = await auth();
 
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
+    <html lang="en" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full font-sans">
-        <SessionProvider session={session}>
-          <TooltipProvider delayDuration={300}>
-            <ToastProvider>
-              {children}
-              <Toaster />
-            </ToastProvider>
-          </TooltipProvider>
-        </SessionProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <SessionProvider session={session}>
+            <TooltipProvider delayDuration={300}>
+              <ToastProvider>
+                {children}
+                <Toaster />
+              </ToastProvider>
+            </TooltipProvider>
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

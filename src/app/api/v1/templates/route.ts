@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import prisma from '@/lib/prisma'
-import { successResponse, paginateResponse, authenticateApiKey, getSearchParams } from '@/lib/api-utils'
+import { paginateResponse, authenticateApiKey, getSearchParams } from '@/lib/api-utils'
 import { handleApiError, ForbiddenError } from '@/lib/errors'
 
 export async function GET(request: NextRequest) {

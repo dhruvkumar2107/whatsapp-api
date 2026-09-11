@@ -179,16 +179,18 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  workspaceMembers      WorkspaceMember[]
-  assignedConversations Conversation[] @relation("AssignedAgent")
-  notes                 Note[]
-  notifications         Notification[]
-  supportTickets        SupportTicket[]
+  workspaceMembers       WorkspaceMember[]
+  assignedConversations  Conversation[] @relation("AssignedAgent")
+  notes                  Note[]
+  notifications          Notification[]
+  notificationPreferences NotificationPreference[]
+  supportTickets         SupportTicket[]
   assignedTickets       SupportTicket[] @relation("AssignedTicket")
   supportReplies        SupportTicketReply[]
   auditLogs             AuditLog[]
   accounts              Account[]
   sessions              Session[]
+  passwordResetTokens   PasswordResetToken[]
 
   @@index([email])
   @@index([phone])
@@ -233,6 +235,19 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
 // ─── Multi-tenancy ───────────────────────────────────────────────────────────
 
 model Workspace {
@@ -262,8 +277,9 @@ model Workspace {
   subscriptions     Subscription[]
   usageRecords      Usage[]
   invoices          Invoice[]
-  notifications     Notification[]
-  supportTickets    SupportTicket[]
+  notifications          Notification[]
+  notificationPreferences NotificationPreference[]
+  supportTickets         SupportTicket[]
   auditLogs         AuditLog[]
 
   @@index([slug])
@@ -341,6 +357,7 @@ model Contact {
   lastMessageAt  DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  pendingChatbotState Json?
 
   workspace       Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   tags            ContactTag[]
@@ -654,6 +671,7 @@ model Automation {
   actions     Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  lastExecutedAt DateTime?
 
   workspace    Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   executions   AutomationExecution[]
@@ -775,15 +793,17 @@ model Plan {
 }
 
 model Subscription {
-  id                 String             @id @default(uuid())
-  workspaceId        String
-  planId             String
-  status             SubscriptionStatus @default(ACTIVE)
-  currentPeriodStart DateTime
-  currentPeriodEnd   DateTime
-  cancelledAt        DateTime?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  id                    String             @id @default(uuid())
+  workspaceId           String
+  planId                String
+  status                SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart    DateTime
+  currentPeriodEnd      DateTime
+  cancelledAt           DateTime?
+  stripeCustomerId      String?
+  stripeSubscriptionId  String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
   workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   plan      Plan       @relation(fields: [planId], references: [id], onDelete: Cascade)
@@ -794,6 +814,8 @@ model Subscription {
   @@index([status])
   @@index([currentPeriodEnd])
   @@index([createdAt])
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
 }
 
 model Usage {
@@ -815,14 +837,15 @@ model Usage {
 }
 
 model Invoice {
-  id             String        @id @default(uuid())
-  workspaceId    String
-  subscriptionId String
-  amount         Decimal       @db.Decimal(10, 2)
-  status         InvoiceStatus @default(PENDING)
-  invoiceUrl     String?
-  paidAt         DateTime?
-  createdAt      DateTime      @default(now())
+  id               String        @id @default(uuid())
+  workspaceId      String
+  subscriptionId   String
+  amount           Decimal       @db.Decimal(10, 2)
+  status           InvoiceStatus @default(PENDING)
+  stripeInvoiceId  String?
+  invoiceUrl       String?
+  paidAt           DateTime?
+  createdAt        DateTime      @default(now())
 
   workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
@@ -831,6 +854,7 @@ model Invoice {
   @@index([subscriptionId])
   @@index([status])
   @@index([createdAt])
+  @@index([stripeInvoiceId])
 }
 
 // ─── Notifications ───────────────────────────────────────────────────────────
@@ -854,6 +878,24 @@ model Notification {
   @@index([isRead])
   @@index([type])
   @@index([createdAt])
+}
+
+model NotificationPreference {
+  id          String   @id @default(uuid())
+  userId      String
+  workspaceId String
+  type        String
+  email       Boolean  @default(true)
+  inApp       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId, type])
+  @@index([userId])
+  @@index([workspaceId])
 }
 
 // ─── Support ─────────────────────────────────────────────────────────────────

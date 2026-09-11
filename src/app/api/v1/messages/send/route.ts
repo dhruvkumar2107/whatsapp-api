@@ -3,8 +3,10 @@ import { Prisma } from '@prisma/client'
 import prisma from '@/lib/prisma'
 import { messageSendSchema } from '@/lib/validators'
 import { successResponse, authenticateApiKey } from '@/lib/api-utils'
-import { handleApiError, UnauthorizedError, ForbiddenError } from '@/lib/errors'
+import { handleApiError, UnauthorizedError, ForbiddenError, RateLimitError } from '@/lib/errors'
 import { enqueueMessageSend } from '@/lib/whatsapp/send'
+import { checkAndFailUsageLimit, incrementUsage } from '@/lib/usage'
+import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +14,16 @@ export async function POST(request: NextRequest) {
 
     if (!authData.permissions.includes('messages:send')) {
       throw new ForbiddenError('Missing permission: messages:send')
+    }
+
+    const { allowed } = rateLimit(`v1:send:${authData.workspaceId}`, 30, 60_000)
+    if (!allowed) {
+      throw new RateLimitError('Too many requests. Please try again later.')
+    }
+
+    const usageCheck = await checkAndFailUsageLimit(authData.workspaceId, 'messagesUsed', 1)
+    if (!usageCheck.allowed) {
+      throw new ForbiddenError(usageCheck.message)
     }
 
     const body = await request.json()
@@ -95,6 +107,8 @@ export async function POST(request: NextRequest) {
     })
 
     enqueueMessageSend(message.id, conversation.id)
+
+    void incrementUsage(authData.workspaceId, { messagesUsed: 1 }).catch(() => {})
 
     return successResponse({ messageId: message.id, status: 'QUEUED' }, 201)
   } catch (error) {

@@ -11,6 +11,8 @@ import {
   ConflictError,
   ValidationError,
 } from '@/lib/errors'
+import { requirePermission } from '@/lib/permissions'
+import { PERMISSIONS } from '@/lib/constants'
 import {
   buildContactsWhere,
   contactOrderBy,
@@ -76,6 +78,8 @@ export async function POST(request: NextRequest) {
     const workspaceId = session?.user?.workspaceId
     const userId = session?.user?.id
     if (!workspaceId || !userId) throw new UnauthorizedError()
+
+    requirePermission(session?.user?.role, PERMISSIONS.CONTACTS_MANAGE)
 
     const body = await request.json().catch(() => null)
     const parsed = contactWriteSchema.safeParse(body)

@@ -7,6 +7,7 @@ import {
   SendMessageResult,
   SendTemplateParams,
   SendMediaParams,
+  SendInteractiveParams,
   TemplateResult,
   CreateTemplateParams,
   CreateTemplateResult,
@@ -17,10 +18,6 @@ import {
 
 function generateMockId(): string {
   return crypto.randomBytes(16).toString('hex')
-}
-
-function generateMockWabaId(): string {
-  return `${Math.floor(Math.random() * 9000000000000) + 1000000000000}`
 }
 
 function delay(ms: number): Promise<void> {
@@ -111,6 +108,26 @@ export class MockProvider implements WhatsAppProvider {
     const messageId = `mock_med_${generateMockId()}`
 
     console.log('[MockWhatsApp] Media message sent with ID:', messageId)
+    return {
+      messagingProduct: 'whatsapp',
+      whatsappMessageId: messageId,
+      status: 'SENT',
+      timestamp: Math.floor(Date.now() / 1000).toString(),
+    }
+  }
+
+  async sendInteractive(params: SendInteractiveParams): Promise<SendMessageResult> {
+    console.log('[MockWhatsApp] sendInteractive:', {
+      to: params.to,
+      interactiveType: params.interactive?.type,
+      phoneNumberId: params.phoneNumberId,
+    })
+
+    await delay(50)
+
+    const messageId = `mock_int_${generateMockId()}`
+
+    console.log('[MockWhatsApp] Interactive message sent with ID:', messageId)
     return {
       messagingProduct: 'whatsapp',
       whatsappMessageId: messageId,
@@ -231,7 +248,8 @@ export class MockProvider implements WhatsAppProvider {
 
   async processWebhook(
     body: unknown,
-    headers: Record<string, string>
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _headers: Record<string, string>
   ): Promise<WebhookEvent> {
     console.log('[MockWhatsApp] processWebhook called')
     return {

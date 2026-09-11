@@ -1,200 +1,122 @@
-// Simple in-process job queue for background jobs.
-// In production, replace with BullMQ + Redis. A mock BullMQ-like interface
-// (InMemoryQueue) is included so the migration path stays familiar.
+import { Queue, Worker, Job } from 'bullmq'
+import { getRedisConnection } from './redis'
 
-type JobHandler = (data: unknown) => Promise<void>
+export const QUEUE_NAMES = {
+  MESSAGES: 'messages',
+  CAMPAIGNS: 'campaigns',
+  WEBHOOKS: 'webhooks',
+  AUTOMATIONS: 'automations',
+} as const
 
-interface QueuedJob {
+export interface QueueJobData {
   id: string
-  queueName: string
-  data: unknown
-  attempts: number
-  maxAttempts: number
-  addedAt: number
-}
-
-const queues: Map<string, JobHandler> = new Map()
-const pendingJobs: QueuedJob[] = []
-const processing: Set<string> = new Set()
-let ticker: ReturnType<typeof setInterval> | null = null
-let jobSequence = 0
-
-const DEFAULT_CONCURRENCY = 4
-const DEFAULT_MAX_ATTEMPTS = 3
-const TICK_INTERVAL_MS = 50
-const RETRY_BASE_MS = 1000
-
-function getConcurrency(queueName: string): number {
-  const configured = Number(process.env[`QUEUE_${queueName.toUpperCase()}_CONCURRENCY`])
-  return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_CONCURRENCY
-}
-
-function startTicker(): void {
-  if (ticker) return
-  ticker = setInterval(() => {
-    void drain()
-  }, TICK_INTERVAL_MS)
-  if (ticker.unref) ticker.unref()
-}
-
-function jobId(): string {
-  jobSequence += 1
-  return `job_${Date.now().toString(36)}_${jobSequence}`
-}
-
-export function createQueue<T>(name: string, handler: (data: T) => Promise<void>): void {
-  queues.set(name, handler as JobHandler)
-  startTicker()
-}
-
-export async function enqueue<T>(queueName: string, data: T): Promise<string> {
-  if (!queues.has(queueName)) {
-    throw new Error(`No worker registered for queue "${queueName}"`)
-  }
-
-  const job: QueuedJob = {
-    id: jobId(),
-    queueName,
-    data,
-    attempts: 0,
-    maxAttempts: DEFAULT_MAX_ATTEMPTS,
-    addedAt: Date.now(),
-  }
-
-  pendingJobs.push(job)
-  void drain()
-  return job.id
-}
-
-export function getQueueSize(queueName?: string): number {
-  if (!queueName) return pendingJobs.length
-  return pendingJobs.filter((j) => j.queueName === queueName).length
-}
-
-async function drain(): Promise<void> {
-  const jobs = pendingJobs.splice(0, pendingJobs.length)
-
-  for (const job of jobs) {
-    if (processing.size >= getConcurrency(job.queueName)) {
-      pendingJobs.push(job)
-      continue
-    }
-
-    const handler = queues.get(job.queueName)
-    if (!handler) {
-      pendingJobs.push(job)
-      continue
-    }
-
-    processing.add(job.id)
-    void runJob(job, handler).finally(() => {
-      processing.delete(job.id)
-      void drain()
-    })
-  }
-}
-
-async function runJob(job: QueuedJob, handler: JobHandler): Promise<void> {
-  job.attempts += 1
-  try {
-    await handler(job.data)
-  } catch (error) {
-    console.error(`[Queue:${job.queueName}] Job ${job.id} failed:`, error)
-
-    if (job.attempts < job.maxAttempts) {
-      const delay = RETRY_BASE_MS * 2 ** (job.attempts - 1)
-      scheduleRetry(job, delay)
-      return
-    }
-
-    console.error(
-      `[Queue:${job.queueName}] Job ${job.id} exhausted ${job.maxAttempts} attempts and was dropped`
-    )
-  }
-}
-
-function scheduleRetry(job: QueuedJob, delayMs: number): void {
-  const timer = setTimeout(() => {
-    pendingJobs.push(job)
-    void drain()
-  }, delayMs)
-  if (timer.unref) timer.unref()
-}
-
-// Mock BullMQ-like interface for future migration -----------------------------
-
-interface QueueOptions {
-  defaultJobOptions?: {
-    attempts?: number
-    removeOnComplete?: boolean
-    removeOnFail?: boolean
-  }
-}
-
-interface BulkJobOptions {
+  type: string
+  workspaceId?: string
+  payload: Record<string, unknown>
   attempts?: number
-  delay?: number
-  removeOnComplete?: boolean
-  removeOnFail?: boolean
 }
 
-interface JobToken<T = unknown> {
-  id: string
-  name: string
-  data: T
+// Lazy queue initialization — only creates queues when Redis is available
+let _queues: Record<string, Queue> | null = null
+
+function getQueues(): Record<string, Queue> {
+  if (!_queues) {
+    const connection = getRedisConnection()
+    _queues = {
+      messages: new Queue(QUEUE_NAMES.MESSAGES, { connection }),
+      campaigns: new Queue(QUEUE_NAMES.CAMPAIGNS, { connection }),
+      webhooks: new Queue(QUEUE_NAMES.WEBHOOKS, { connection }),
+      automations: new Queue(QUEUE_NAMES.AUTOMATIONS, { connection }),
+      'dead-letter': new Queue('dead-letter', { connection }),
+    }
+  }
+  return _queues
 }
 
-export class InMemoryQueue<T = unknown> {
-  readonly name: string
-  private readonly handler: JobHandler | null
-  private readonly options: QueueOptions
-  private readonly jobs: Map<string, JobToken<T>>
+export const queues = new Proxy({} as Record<string, Queue>, {
+  get(_, prop: string) {
+    return getQueues()[prop]
+  },
+})
 
-  constructor(name: string, options: QueueOptions = {}) {
-    this.name = name
-    this.handler = null
-    this.options = options
-    this.jobs = new Map()
-  }
+export const deadLetterQueue = new Proxy({} as Queue, {
+  get(_, prop: string) {
+    return (getQueues()['dead-letter'] as unknown as Record<string, unknown>)[prop]
+  },
+}) as unknown as Queue
 
-  async add(name: string, data: T, _options?: BulkJobOptions): Promise<JobToken<T>> {
-    if (!queues.has(this.name)) {
-      throw new Error(`No worker registered for queue "${this.name}"`)
-    }
-
-    const token: JobToken<T> = { id: jobId(), name, data }
-    this.jobs.set(token.id, token)
-
-    await enqueue(this.name, data)
-    return token
-  }
-
-  async addBulk(
-    items: Array<{ name: string; data: T; opts?: BulkJobOptions }>
-  ): Promise<JobToken<T>[]> {
-    const tokens: JobToken<T>[] = []
-    for (const item of items) {
-      tokens.push(await this.add(item.name, item.data, item.opts))
-    }
-    return tokens
-  }
-
-  async getJob(id: string): Promise<JobToken<T> | undefined> {
-    return this.jobs.get(id)
-  }
-
-  async getJobCounts(): Promise<{ waiting: number; active: number; completed: number; failed: number }> {
-    return {
-      waiting: getQueueSize(this.name),
-      active: processing.size,
-      completed: 0,
-      failed: 0,
-    }
-  }
-
-  async close(): Promise<void> {
-    queues.delete(this.name)
-  }
+const defaultJobOptions = {
+  attempts: 3,
+  backoff: {
+    type: 'exponential' as const,
+    delay: 1000,
+  },
+  removeOnComplete: { age: 86400 },
+  removeOnFail: { age: 604800 },
 }
 
-export { DEFAULT_CONCURRENCY, DEFAULT_MAX_ATTEMPTS }
+export type QueueName = 'messages' | 'campaigns' | 'webhooks' | 'automations' | 'dead-letter'
+
+const QUEUE_MAP: Record<QueueName, string> = {
+  messages: QUEUE_NAMES.MESSAGES,
+  campaigns: QUEUE_NAMES.CAMPAIGNS,
+  webhooks: QUEUE_NAMES.WEBHOOKS,
+  automations: QUEUE_NAMES.AUTOMATIONS,
+  'dead-letter': 'dead-letter',
+}
+
+export async function enqueueJob(
+  queueName: QueueName,
+  data: QueueJobData,
+  options?: { delay?: number; priority?: number }
+): Promise<Job<QueueJobData>> {
+  const allQueues = getQueues()
+  const queueKey = QUEUE_MAP[queueName]
+  const queue = allQueues[queueKey]
+  if (!queue) throw new Error(`Queue ${queueName} not found`)
+  return queue.add(data.type, data, {
+    ...defaultJobOptions,
+    ...options,
+    jobId: `${data.type}-${data.id}`,
+  })
+}
+
+export function createWorker(
+  queueName: QueueName,
+  processor: (job: Job<QueueJobData>) => Promise<void>
+): Worker<QueueJobData> {
+  const connection = getRedisConnection()
+  return new Worker<QueueJobData>(
+    queueName,
+    async (job) => {
+      try {
+        await processor(job)
+      } catch (error) {
+        const allQueues = getQueues()
+        if (job.attemptsMade >= (job.opts.attempts || 3) - 1) {
+          const dlq = allQueues['dead-letter']
+          if (dlq) {
+            await dlq.add('failed-job', {
+              id: job.id?.toString() || 'unknown',
+              type: job.name,
+              payload: { ...job.data, error: String(error), failedAt: new Date().toISOString() },
+            })
+          }
+        }
+        throw error
+      }
+    },
+    {
+      connection,
+      concurrency: parseInt(process.env[`QUEUE_${queueName.toUpperCase()}_CONCURRENCY`] || '5'),
+    }
+  )
+}
+
+export async function closeAllQueues(): Promise<void> {
+  if (!_queues) return
+  await Promise.all(
+    Object.values(_queues).map((q) => q.close())
+  )
+  _queues = null
+}

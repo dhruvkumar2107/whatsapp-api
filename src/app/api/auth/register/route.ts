@@ -3,8 +3,18 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validators";
 import { slugify } from "@/lib/utils";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const { allowed, resetAt } = rateLimit(`register:${ip}`, 5, 60_000);
+  if (!allowed) {
+    return NextResponse.json(
+      { success: false, error: { message: "Too many requests. Please try again later.", code: "RATE_LIMIT_EXCEEDED" } },
+      { status: 429, headers: { "X-RateLimit-Remaining": "0", "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)) } }
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();

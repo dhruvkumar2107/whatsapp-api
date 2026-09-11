@@ -4,7 +4,7 @@ import * as React from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 
-import { cn } from "@/lib/utils";
+import { GlobalSearch } from "@/components/global-search";
 import { AdminSidebar } from "@/components/layout/admin-sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import {
   Shield,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function AdminLayout({
   children,
@@ -34,6 +35,49 @@ export default function AdminLayout({
   const pathname = usePathname();
   const { data: session, status } = useSession();
   const [sheetOpen, setSheetOpen] = React.useState(false);
+  const [mockMode, setMockMode] = React.useState(false);
+  const [notifications, setNotifications] = React.useState<Array<{
+    id: string;
+    type: string;
+    title: string;
+    message: string;
+    isRead: boolean;
+    createdAt: string;
+  }>>([]);
+  const [unreadCount, setUnreadCount] = React.useState(0);
+
+  const loadNotifications = React.useCallback(() => {
+    fetch("/api/notifications?limit=8")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (body?.data) {
+          setNotifications(body.data);
+          setUnreadCount(body.data.filter((n: { isRead: boolean }) => !n.isRead).length);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  React.useEffect(() => {
+    fetch("/api/system/status")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (body?.mockMode) setMockMode(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  React.useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [loadNotifications]);
+
+  const markAllRead = React.useCallback(() => {
+    void fetch("/api/notifications/read", { method: "POST" })
+      .then(() => loadNotifications())
+      .catch(() => {});
+  }, [loadNotifications]);
 
   React.useEffect(() => {
     if (status === "unauthenticated") {
@@ -79,6 +123,14 @@ export default function AdminLayout({
 
   return (
     <div className="flex h-svh w-full overflow-hidden bg-muted/40 dark:bg-background">
+      <GlobalSearch />
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-background focus:p-2"
+      >
+        Skip to content
+      </a>
+
       <aside className="hidden shrink-0 lg:block">
         <AdminSidebar
           currentPath={pathname}
@@ -111,6 +163,15 @@ export default function AdminLayout({
           </Button>
 
           <div className="flex min-w-0 flex-1 items-center gap-3">
+            {mockMode && (
+              <Badge
+                variant="secondary"
+                className="gap-1 bg-red-500/10 text-red-600 dark:text-red-400"
+              >
+                <span className="size-1.5 rounded-full bg-red-500 shadow-[0_0_6px] shadow-red-500/60" />
+                MOCK MODE
+              </Badge>
+            )}
             <Badge
               variant="secondary"
               className="gap-1 bg-violet-500/10 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300"
@@ -121,6 +182,8 @@ export default function AdminLayout({
           </div>
 
           <div className="flex items-center gap-1">
+            <ThemeToggle />
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -130,15 +193,50 @@ export default function AdminLayout({
                   aria-label="Notifications"
                 >
                   <Bell className="size-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-80">
-                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                <DropdownMenuLabel className="flex items-center justify-between">
+                  <span>Notifications</span>
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={markAllRead}
+                      className="text-xs font-normal text-muted-foreground hover:text-foreground"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <div className="flex flex-col items-center gap-1 px-2 py-6 text-center">
-                  <Bell className="size-5 text-muted-foreground" />
-                  <p className="text-sm font-medium">No notifications</p>
-                </div>
+                {notifications.length === 0 ? (
+                  <div className="flex flex-col items-center gap-1 px-2 py-6 text-center">
+                    <Bell className="size-5 text-muted-foreground" />
+                    <p className="text-sm font-medium">No notifications</p>
+                  </div>
+                ) : (
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.map((n) => (
+                      <div
+                        key={n.id}
+                        className={`flex flex-col gap-0.5 px-3 py-2 text-sm ${!n.isRead ? "bg-muted/50" : ""}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {!n.isRead && (
+                            <span className="size-1.5 shrink-0 rounded-full bg-blue-500" />
+                          )}
+                          <span className="font-medium">{n.title}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{n.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -187,7 +285,7 @@ export default function AdminLayout({
           </div>
         </div>
 
-        <main className="min-h-0 flex-1 overflow-y-auto">
+        <main id="main-content" className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[1400px] p-4 sm:p-6 lg:p-8">
             {children}
           </div>

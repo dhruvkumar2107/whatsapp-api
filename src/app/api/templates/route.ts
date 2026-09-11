@@ -4,20 +4,7 @@ import prisma from "@/lib/prisma";
 import { templateSchema } from "@/lib/validators";
 import { successResponse, paginateResponse, getSearchParams } from "@/lib/api-utils";
 import { handleApiError, UnauthorizedError, ValidationError } from "@/lib/errors";
-
-function extractTemplateFields(components: Array<{ type: string; text?: string; parameters?: unknown[] }>) {
-  const header = components.find((c) => c.type === "HEADER");
-  const body = components.find((c) => c.type === "BODY");
-  const footer = components.find((c) => c.type === "FOOTER");
-  const buttons = components.find((c) => c.type === "BUTTONS");
-
-  return {
-    header: header ? { type: "text", text: header.text || "" } : undefined,
-    body: body ? { text: body.text || "" } : undefined,
-    footer: footer?.text || undefined,
-    buttons: buttons?.text ? JSON.parse(buttons.text) : undefined,
-  };
-}
+import { extractTemplateFields } from "@/lib/template-utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,7 +12,10 @@ export async function GET(request: NextRequest) {
     const workspaceId = session?.user?.workspaceId;
     if (!workspaceId) throw new UnauthorizedError();
 
-    const { page, limit, search, sortBy, sortOrder, filters } = getSearchParams(request);
+    const { page, limit, search, sortBy: rawSortBy, sortOrder, filters } = getSearchParams(request);
+
+    const allowedSortFields = ['createdAt', 'name', 'updatedAt', 'status']
+    const sortBy = allowedSortFields.includes(rawSortBy) ? rawSortBy : 'createdAt'
 
     const where: Record<string, unknown> = { workspaceId };
     if (filters.status) where.status = filters.status;
