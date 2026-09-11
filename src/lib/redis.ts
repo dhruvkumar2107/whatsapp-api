@@ -3,7 +3,8 @@ import Redis from 'ioredis'
 const globalForRedis = globalThis as unknown as { redis: Redis }
 
 function createRedisConnection(): Redis {
-  if (!process.env.REDIS_URL) {
+  const url = (process.env.REDIS_URL || '').trim()
+  if (!url) {
     // Return a mock Redis that silently no-ops when no Redis is configured
     return {
       get: async () => null,
@@ -41,7 +42,8 @@ export default redis
 const globalForBullmq = globalThis as unknown as { bullmqConnection: Redis }
 
 function createBullmqConnection(): Redis {
-  if (!process.env.REDIS_URL) {
+  const url = (process.env.REDIS_URL || '').trim()
+  if (!url) {
     return {
       get: async () => null,
       set: async () => 'OK',
