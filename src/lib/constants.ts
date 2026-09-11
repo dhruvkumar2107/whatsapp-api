@@ -1,0 +1,228 @@
+export const ROLES = {
+  SUPER_ADMIN: 'SUPER_ADMIN',
+  OWNER: 'OWNER',
+  ADMIN: 'ADMIN',
+  MANAGER: 'MANAGER',
+  AGENT: 'AGENT',
+  VIEWER: 'VIEWER',
+} as const
+
+export type Role = (typeof ROLES)[keyof typeof ROLES]
+
+export const PERMISSIONS = {
+  WORKSPACE_MANAGE: 'workspace:manage',
+  WORKSPACE_BILLING: 'workspace:billing',
+  CONTACTS_VIEW: 'contacts:view',
+  CONTACTS_CREATE: 'contacts:create',
+  CONTACTS_EDIT: 'contacts:edit',
+  CONTACTS_DELETE: 'contacts:delete',
+  CONTACTS_IMPORT: 'contacts:import',
+  MESSAGES_VIEW: 'messages:view',
+  MESSAGES_SEND: 'messages:send',
+  MESSAGES_SEND_BULK: 'messages:send_bulk',
+  TEMPLATES_VIEW: 'templates:view',
+  TEMPLATES_CREATE: 'templates:create',
+  TEMPLATES_EDIT: 'templates:edit',
+  TEMPLATES_DELETE: 'templates:delete',
+  TEMPLATES_APPROVE: 'templates:approve',
+  CAMPAIGNS_VIEW: 'campaigns:view',
+  CAMPAIGNS_CREATE: 'campaigns:create',
+  CAMPAIGNS_EDIT: 'campaigns:edit',
+  CAMPAIGNS_DELETE: 'campaigns:delete',
+  CAMPAIGNS_SCHEDULE: 'campaigns:schedule',
+  CHATBOT_VIEW: 'chatbot:view',
+  CHATBOT_MANAGE: 'chatbot:manage',
+  AUTOMATIONS_VIEW: 'automations:view',
+  AUTOMATIONS_MANAGE: 'automations:manage',
+  WEBHOOKS_VIEW: 'webhooks:view',
+  WEBHOOKS_MANAGE: 'webhooks:manage',
+  API_KEYS_VIEW: 'api_keys:view',
+  API_KEYS_MANAGE: 'api_keys:manage',
+  ANALYTICS_VIEW: 'analytics:view',
+  SETTINGS_VIEW: 'settings:view',
+  SETTINGS_MANAGE: 'settings:manage',
+  TEAM_INVITE: 'team:invite',
+  TEAM_MANAGE: 'team:manage',
+} as const
+
+export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
+
+export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
+  SUPER_ADMIN: Object.values(PERMISSIONS) as Permission[],
+  OWNER: Object.values(PERMISSIONS) as Permission[],
+  ADMIN: [
+    PERMISSIONS.WORKSPACE_MANAGE,
+    PERMISSIONS.WORKSPACE_BILLING,
+    PERMISSIONS.CONTACTS_VIEW,
+    PERMISSIONS.CONTACTS_CREATE,
+    PERMISSIONS.CONTACTS_EDIT,
+    PERMISSIONS.CONTACTS_DELETE,
+    PERMISSIONS.CONTACTS_IMPORT,
+    PERMISSIONS.MESSAGES_VIEW,
+    PERMISSIONS.MESSAGES_SEND,
+    PERMISSIONS.MESSAGES_SEND_BULK,
+    PERMISSIONS.TEMPLATES_VIEW,
+    PERMISSIONS.TEMPLATES_CREATE,
+    PERMISSIONS.TEMPLATES_EDIT,
+    PERMISSIONS.TEMPLATES_DELETE,
+    PERMISSIONS.TEMPLATES_APPROVE,
+    PERMISSIONS.CAMPAIGNS_VIEW,
+    PERMISSIONS.CAMPAIGNS_CREATE,
+    PERMISSIONS.CAMPAIGNS_EDIT,
+    PERMISSIONS.CAMPAIGNS_DELETE,
+    PERMISSIONS.CAMPAIGNS_SCHEDULE,
+    PERMISSIONS.CHATBOT_VIEW,
+    PERMISSIONS.CHATBOT_MANAGE,
+    PERMISSIONS.AUTOMATIONS_VIEW,
+    PERMISSIONS.AUTOMATIONS_MANAGE,
+    PERMISSIONS.WEBHOOKS_VIEW,
+    PERMISSIONS.WEBHOOKS_MANAGE,
+    PERMISSIONS.API_KEYS_VIEW,
+    PERMISSIONS.API_KEYS_MANAGE,
+    PERMISSIONS.ANALYTICS_VIEW,
+    PERMISSIONS.SETTINGS_VIEW,
+    PERMISSIONS.SETTINGS_MANAGE,
+    PERMISSIONS.TEAM_INVITE,
+    PERMISSIONS.TEAM_MANAGE,
+  ],
+  MANAGER: [
+    PERMISSIONS.CONTACTS_VIEW,
+    PERMISSIONS.CONTACTS_CREATE,
+    PERMISSIONS.CONTACTS_EDIT,
+    PERMISSIONS.CONTACTS_DELETE,
+    PERMISSIONS.CONTACTS_IMPORT,
+    PERMISSIONS.MESSAGES_VIEW,
+    PERMISSIONS.MESSAGES_SEND,
+    PERMISSIONS.MESSAGES_SEND_BULK,
+    PERMISSIONS.TEMPLATES_VIEW,
+    PERMISSIONS.TEMPLATES_CREATE,
+    PERMISSIONS.TEMPLATES_EDIT,
+    PERMISSIONS.TEMPLATES_DELETE,
+    PERMISSIONS.CAMPAIGNS_VIEW,
+    PERMISSIONS.CAMPAIGNS_CREATE,
+    PERMISSIONS.CAMPAIGNS_EDIT,
+    PERMISSIONS.CAMPAIGNS_DELETE,
+    PERMISSIONS.CAMPAIGNS_SCHEDULE,
+    PERMISSIONS.CHATBOT_VIEW,
+    PERMISSIONS.CHATBOT_MANAGE,
+    PERMISSIONS.AUTOMATIONS_VIEW,
+    PERMISSIONS.AUTOMATIONS_MANAGE,
+    PERMISSIONS.ANALYTICS_VIEW,
+    PERMISSIONS.TEAM_INVITE,
+  ],
+  AGENT: [
+    PERMISSIONS.CONTACTS_VIEW,
+    PERMISSIONS.MESSAGES_VIEW,
+    PERMISSIONS.MESSAGES_SEND,
+    PERMISSIONS.TEMPLATES_VIEW,
+    PERMISSIONS.ANALYTICS_VIEW,
+  ],
+  VIEWER: [
+    PERMISSIONS.CONTACTS_VIEW,
+    PERMISSIONS.MESSAGES_VIEW,
+    PERMISSIONS.TEMPLATES_VIEW,
+    PERMISSIONS.CAMPAIGNS_VIEW,
+    PERMISSIONS.ANALYTICS_VIEW,
+  ],
+}
+
+export const MESSAGE_TYPES = {
+  TEXT: 'TEXT',
+  IMAGE: 'IMAGE',
+  VIDEO: 'VIDEO',
+  AUDIO: 'AUDIO',
+  DOCUMENT: 'DOCUMENT',
+  LOCATION: 'LOCATION',
+  CONTACT: 'CONTACT',
+  TEMPLATE: 'TEMPLATE',
+  INTERACTIVE: 'INTERACTIVE',
+  REACTION: 'REACTION',
+} as const
+
+export const CAMPAIGN_STATUSES = {
+  DRAFT: 'DRAFT',
+  SCHEDULED: 'SCHEDULED',
+  RUNNING: 'RUNNING',
+  PAUSED: 'PAUSED',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED',
+} as const
+
+export const TEMPLATE_STATUSES = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  DISABLED: 'DISABLED',
+  ARCHIVED: 'ARCHIVED',
+} as const
+
+export const WHATSAPP_STATUSES = {
+  SENT: 'SENT',
+  DELIVERED: 'DELIVERED',
+  READ: 'READ',
+  PLAYED: 'PLAYED',
+  FAILED: 'FAILED',
+  PENDING: 'PENDING',
+  RECEIVED: 'RECEIVED',
+} as const
+
+export const PLAN_LIMITS = {
+  FREE: {
+    contacts: 100,
+    messagesPerDay: 250,
+    templates: 5,
+    campaigns: 2,
+    teamMembers: 2,
+    apiKeys: 1,
+    webhooks: 1,
+    chatbots: 1,
+    automations: 1,
+    storage: 100 * 1024 * 1024, // 100MB
+  },
+  STARTER: {
+    contacts: 5000,
+    messagesPerDay: 5000,
+    templates: 50,
+    campaigns: 25,
+    teamMembers: 5,
+    apiKeys: 5,
+    webhooks: 5,
+    chatbots: 3,
+    automations: 10,
+    storage: 1 * 1024 * 1024 * 1024, // 1GB
+  },
+  BUSINESS: {
+    contacts: 50000,
+    messagesPerDay: 50000,
+    templates: 500,
+    campaigns: 100,
+    teamMembers: 25,
+    apiKeys: 20,
+    webhooks: 20,
+    chatbots: 10,
+    automations: 50,
+    storage: 10 * 1024 * 1024 * 1024, // 10GB
+  },
+  ENTERPRISE: {
+    contacts: -1, // unlimited
+    messagesPerDay: -1,
+    templates: -1,
+    campaigns: -1,
+    teamMembers: -1,
+    apiKeys: -1,
+    webhooks: -1,
+    chatbots: -1,
+    automations: -1,
+    storage: -1,
+  },
+} as const
+
+export const PAGINATION_DEFAULTS = {
+  PAGE: 1,
+  LIMIT: 20,
+  MAX_LIMIT: 100,
+} as const
+
+export const API_KEY_PREFIX = 'wapi_'
+export const API_KEY_LENGTH = 40
