@@ -83,52 +83,75 @@ export default function InboxPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   const scrollAnchorRef = useRef<HTMLDivElement>(null)
+  const lastMessageIdRef = useRef<string | null>(null)
+  const selectedIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    selectedIdRef.current = selectedId
+  }, [selectedId])
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300)
     return () => clearTimeout(t)
   }, [search])
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadConversations() {
-      setListLoading(true)
+  const loadConversations = useCallback(
+    async (silent = false) => {
+      if (!silent) setListLoading(true)
       const params = new URLSearchParams({ limit: '200' })
       if (debouncedSearch) params.set('search', debouncedSearch)
       if (filter !== 'all') params.set('filter', filter)
       try {
         const res = await fetch(`/api/conversations?${params}`)
         const body = await res.json()
-        if (!cancelled && body.data) setConversations(body.data)
+        if (body.data) setConversations(body.data)
       } catch {
       } finally {
-        if (!cancelled) setListLoading(false)
+        if (!silent) setListLoading(false)
       }
-    }
+    },
+    [debouncedSearch, filter]
+  )
 
+  useEffect(() => {
     loadConversations()
-    return () => {
-      cancelled = true
-    }
-  }, [debouncedSearch, filter])
+  }, [loadConversations])
 
-  const fetchConversation = useCallback(async (id: string) => {
-    setDetailLoading(true)
-    try {
-      const [detailRes, messagesRes] = await Promise.all([
-        fetch(`/api/conversations/${id}`),
-        fetch(`/api/conversations/${id}/messages?limit=100`),
-      ])
-      const detailBody = await detailRes.json()
-      const messagesBody = await messagesRes.json()
-      if (detailBody.data) setConversation(detailBody.data)
-      setMessages(messagesBody.data || [])
-    } catch {
-    } finally {
-      setDetailLoading(false)
-    }
-  }, [])
+  const fetchConversation = useCallback(
+    async (id: string, markRead = true) => {
+      setDetailLoading(true)
+      try {
+        const [detailRes, messagesRes] = await Promise.all([
+          fetch(`/api/conversations/${id}`),
+          fetch(`/api/conversations/${id}/messages?limit=100`),
+        ])
+        const detailBody = await detailRes.json()
+        const messagesBody = await messagesRes.json()
+        if (detailBody.data) {
+          setConversation(detailBody.data)
+          if (detailBody.data.unreadCount > 0 && markRead) {
+            fetch(`/api/conversations/${id}/read`, { method: 'POST' }).catch(() => {})
+          }
+        }
+        setMessages(messagesBody.data || [])
+      } catch {
+      } finally {
+        setDetailLoading(false)
+      }
+    },
+    []
+  )
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      loadConversations(true)
+      const selected = selectedIdRef.current
+      if (selected) {
+        fetchConversation(selected, true)
+      }
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [loadConversations, fetchConversation])
 
   const handleSelect = useCallback(
     (id: string) => {
@@ -146,7 +169,12 @@ export default function InboxPage() {
   }, [])
 
   useEffect(() => {
-    scrollToBottom()
+    const last = messages[messages.length - 1]
+    const lastId = last?.id ?? null
+    if (lastId && lastId !== lastMessageIdRef.current) {
+      lastMessageIdRef.current = lastId
+      scrollToBottom()
+    }
   }, [messages, scrollToBottom])
 
   const handleSend = useCallback(

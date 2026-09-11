@@ -238,6 +238,16 @@ export const messageSendSchema = z.object({
     })
     .optional(),
 })
+  .refine(
+    (data) => {
+      if (data.type === 'TEXT') return !!data.text
+      if (data.type === 'TEMPLATE') return !!data.template
+      if (['IMAGE', 'VIDEO', 'AUDIO', 'DOCUMENT'].includes(data.type)) return !!data.media
+      if (data.type === 'INTERACTIVE') return !!data.interactive
+      return true
+    },
+    { message: 'Message content is required for the selected type', path: ['text'] }
+  )
 
 export type LoginInput = z.infer<typeof loginSchema>
 export type RegisterInput = z.infer<typeof registerSchema>

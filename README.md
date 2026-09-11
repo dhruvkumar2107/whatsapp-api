@@ -93,7 +93,7 @@ src/
     queue.ts           # Queue abstraction (in-process fallback for BullMQ)
     auth.ts tenant.ts  # Auth + tenant context + permission checks
     prisma.ts redis.ts encryption.ts errors.ts api-utils.ts validators.ts
-  middleware.ts        # Route protection + role gates
+  proxy.ts             # Route protection + role gates
 prisma/
   schema.prisma        # Full relational schema (35+ models)
   seed.ts              # Demo data seed script
@@ -143,11 +143,16 @@ Set `WHATSAPP_PROVIDER=mock` in `.env`. The Mock provider simulates sends, deliv
 | `npm run build` | Production build |
 | `npm start` | Start production server |
 | `npm run lint` | Lint |
+| `npm test` | Unit tests (Vitest) |
 | `npx tsc --noEmit` | Type check |
 | `npx prisma migrate dev` | Create/apply migrations |
 | `npx prisma migrate deploy` | Apply migrations in production |
 | `npx prisma db seed` | Seed development data |
 | `npx prisma studio` | Browse database |
+
+## Testing & CI
+
+Unit tests (Vitest) cover the core pure logic: utilities, Zod validators, RBAC permissions, and the AES-256-GCM encryption module — `npm test` runs them. GitHub Actions CI (`.github/workflows/ci.yml`) runs **typecheck → lint → test → build** on every push to `main` and on pull requests.
 
 ## Environment Variables
 
