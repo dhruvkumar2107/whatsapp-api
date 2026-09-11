@@ -161,13 +161,15 @@ Unit tests (Vitest) cover the core pure logic: utilities, Zod validators, RBAC p
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `NEXTAUTH_SECRET` | Yes | Auth encryption secret (generate with `openssl rand -base64 32`) |
 | `NEXTAUTH_URL` | Yes | Public app URL |
+| `NEXT_PUBLIC_APP_URL` | For Meta | Public app URL used to build the OAuth redirect URI |
 | `ENCRYPTION_KEY` | Yes | 32-char key used to encrypt Meta credentials at rest |
 | `WHATSAPP_PROVIDER` | No | `meta` (production) or `mock` (development). Default `meta`. |
 | `REDIS_URL` | No | Redis connection for BullMQ queues. Falls back to in-process worker. |
 | `META_APP_ID` / `META_APP_SECRET` | For Meta | Facebook App credentials |
-| `META_VERIFY_TOKEN` | For Meta | Webhook verification token |
-| `META_REDIRECT_URI` | For Meta | OAuth redirect URI |
+| `META_ACCESS_TOKEN` | For Meta | System access token used as the default sending credential |
+| `META_WEBHOOK_VERIFY_TOKEN` | For Meta | Webhook verification token |
 | `META_WEBHOOK_SECRET` | For Meta | Webhook signature secret |
+| `CAMPAIGN_RATE_LIMIT_MS` / `CAMPAIGN_BATCH_SIZE` | No | Campaign throughput tuning |
 | `PAYMENT_PROVIDER` | No | `stripe` or `razorpay` |
 | `STRIPE_SECRET_KEY` / `RAZORPAY_KEY_ID` | For payments | Payment gateway keys |
 
@@ -192,7 +194,7 @@ docker run -p 3000:3000 --env-file .env whaatopro
 
 1. Create a Meta app at developers.facebook.com with the WhatsApp product.
 2. Configure OAuth redirect URI → `https://<your-domain>/api/whatsapp/callback`.
-3. Set `META_APP_ID`, `META_APP_SECRET`, `META_VERIFY_TOKEN`, `META_WEBHOOK_SECRET`.
+3. Set `META_APP_ID`, `META_APP_SECRET`, `META_ACCESS_TOKEN`, `META_WEBHOOK_VERIFY_TOKEN` (any random string), `META_WEBHOOK_SECRET`, and `NEXT_PUBLIC_APP_URL`.
 4. Set up the webhook subscription URL → `https://<your-domain>/api/webhooks/meta` with the verify token.
 5. Subscribed fields: `messages` and `message_template_status_update`.
 6. Set `WHATSAPP_PROVIDER=meta`.
