@@ -15,10 +15,10 @@ function createRedisConnection(): Redis {
     } as unknown as Redis
   }
   
-  const client = new Redis(process.env.REDIS_URL, {
+  const client = new Redis(url, {
     maxRetriesPerRequest: 3,
     enableOfflineQueue: false,
-    retryStrategy(times) {
+    retryStrategy(times: number) {
       if (times > 10) return null // Stop retrying
       const delay = Math.min(times * 50, 2000)
       return delay
@@ -53,10 +53,10 @@ function createBullmqConnection(): Redis {
     } as unknown as Redis
   }
   
-  const client = new Redis(process.env.REDIS_URL, {
+  const client = new Redis(url, {
     maxRetriesPerRequest: null,
     enableOfflineQueue: false,
-    retryStrategy(times) {
+    retryStrategy(times: number) {
       if (times > 10) return null
       const delay = Math.min(times * 50, 2000)
       return delay
