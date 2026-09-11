@@ -194,10 +194,11 @@ async function seedDemoWorkspace() {
     },
   })
 
-  await prisma.$transaction(async (tx) => {
-    const workspaceId = demoWorkspace.id
+  await prisma.$transaction(
+    async (tx) => {
+      const workspaceId = demoWorkspace.id
 
-    await tx.usage.deleteMany({ where: { workspaceId } })
+      await tx.usage.deleteMany({ where: { workspaceId } })
     await tx.auditLog.deleteMany({ where: { workspaceId } })
     await tx.notification.deleteMany({ where: { workspaceId } })
     await tx.supportTicket.deleteMany({ where: { workspaceId } })
@@ -523,7 +524,9 @@ async function seedDemoWorkspace() {
         automationsUsed: 2,
       },
     })
-  })
+  },
+    { timeout: 120000 }
+  )
 
   console.log(`[seed] Demo workspace ready: demo-company (Demo Company)`)
   console.log(`[seed] Demo users: demo@whaatopro.com / agent1@whaatopro.com / agent2@whaatopro.com`)

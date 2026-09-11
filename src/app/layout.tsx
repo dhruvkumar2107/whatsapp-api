@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
 import { auth } from "@/lib/auth";
-import { Toaster } from "@/components/ui/toaster";
+import { ToastProvider, Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
@@ -29,9 +29,13 @@ export default async function RootLayout({
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full font-sans">
         <SessionProvider session={session}>
-          <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
+          <TooltipProvider delayDuration={300}>
+            <ToastProvider>
+              {children}
+              <Toaster />
+            </ToastProvider>
+          </TooltipProvider>
         </SessionProvider>
-        <Toaster />
       </body>
     </html>
   );
