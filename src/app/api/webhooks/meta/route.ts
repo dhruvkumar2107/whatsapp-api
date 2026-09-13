@@ -13,7 +13,7 @@ const VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || 'default_verify_to
 
 export async function GET(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  const { allowed } = rateLimit(`meta:${ip}`, 100, 60_000)
+  const { allowed } = await rateLimit(`meta:${ip}`, 100, 60_000)
   if (!allowed) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  const { allowed } = rateLimit(`meta:${ip}`, 100, 60_000)
+  const { allowed } = await rateLimit(`meta:${ip}`, 100, 60_000)
   if (!allowed) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }

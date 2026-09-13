@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       throw new ForbiddenError('Missing permission: messages:send')
     }
 
-    const { allowed } = rateLimit(`v1:send:${authData.workspaceId}`, 30, 60_000)
+    const { allowed } = await rateLimit(`v1:send:${authData.workspaceId}`, 30, 60_000)
     if (!allowed) {
       throw new RateLimitError('Too many requests. Please try again later.')
     }

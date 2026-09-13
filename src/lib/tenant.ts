@@ -1,82 +1,52 @@
-import { Session } from 'next-auth'
-import { ForbiddenError, UnauthorizedError } from './errors'
-import { ROLE_PERMISSIONS, Role, Permission } from './constants'
-import prisma from './prisma'
+import { auth } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { ForbiddenError, UnauthorizedError } from "@/lib/errors";
 
-export async function getCurrentWorkspace(session: Session | null) {
-  if (!session?.user?.workspaceId) return null
-
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: session.user.workspaceId },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      status: true,
-    },
-  })
-
-  return workspace
+export interface TenantContext {
+  userId: string;
+  workspaceId: string;
+  role: string;
 }
 
-export function requireAuth(session: Session | null): asserts session is Session & { user: { id: string; workspaceId: string; role: Role } } {
-  if (!session?.user?.id) {
-    throw new UnauthorizedError()
+export async function getTenantContext(): Promise<TenantContext> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  const workspaceId = session?.user?.workspaceId;
+  const role = session?.user?.role;
+
+  if (!userId) {
+    throw new UnauthorizedError("Authentication required");
   }
-  if (!session.user.workspaceId) {
-    throw new UnauthorizedError('No workspace associated with this account')
+
+  if (!workspaceId) {
+    throw new ForbiddenError("No workspace associated with this account");
   }
+
+  return { userId, workspaceId, role: role || "VIEWER" };
 }
 
-export function requireWorkspace(session: Session | null): asserts session is Session & { user: { workspaceId: string } } {
-  requireAuth(session)
-  if (!session!.user.workspaceId) {
-    throw new ForbiddenError('No workspace selected')
+export async function requireTenantRole(
+  allowedRoles: string[]
+): Promise<TenantContext> {
+  const ctx = await getTenantContext();
+  if (!allowedRoles.includes(ctx.role)) {
+    throw new ForbiddenError(
+      `This action requires one of the following roles: ${allowedRoles.join(", ")}`
+    );
   }
+  return ctx;
 }
 
-export function requireRole(
-  session: Session | null,
-  roles: Role[]
-): asserts session is Session & { user: { id: string; workspaceId: string; role: Role } } {
-  requireWorkspace(session)
-  const userRole = session!.user.role as Role
-  if (!roles.includes(userRole)) {
-    throw new ForbiddenError(`Requires one of the following roles: ${roles.join(', ')}`)
+export async function validateWorkspaceAccess(
+  workspaceId: string
+): Promise<TenantContext> {
+  const ctx = await getTenantContext();
+  if (ctx.workspaceId !== workspaceId) {
+    throw new ForbiddenError("You do not have access to this workspace");
   }
+  return ctx;
 }
 
-export async function checkPermission(
-  workspaceId: string,
-  permission: Permission,
-  role?: Role
-): Promise<boolean> {
-  if (role) return hasPermission(role, permission)
-
-  const session = await import('@/lib/auth').then((m) => m.auth().then((s) => s)).catch(() => null)
-  const userRole = session?.user?.role as Role | undefined
-  if (!userRole) return false
-  return hasPermission(userRole, permission)
-}
-
-export function hasPermission(userRole: Role, permission: Permission): boolean {
-  const rolePermissions = ROLE_PERMISSIONS[userRole]
-  if (!rolePermissions) return false
-  return rolePermissions.includes(permission)
-}
-
-export async function getWorkspaceMembers(workspaceId: string) {
-  return prisma.workspaceMember.findMany({
-    where: { workspaceId },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          image: true,
-        },
-      },
-    },
-  })
+export async function getWorkspaceMemberCount(workspaceId: string) {
+  return prisma.workspaceMember.count({ where: { workspaceId } });
 }

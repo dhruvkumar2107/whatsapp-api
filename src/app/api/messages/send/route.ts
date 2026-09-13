@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     if (!workspaceId) throw new UnauthorizedError('No workspace')
 
-    const { allowed } = rateLimit(`send:${workspaceId}`, 30, 60_000)
+    const { allowed } = await rateLimit(`send:${workspaceId}`, 30, 60_000)
     if (!allowed) {
       throw new RateLimitError('Too many requests. Please try again later.')
     }

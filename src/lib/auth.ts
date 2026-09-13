@@ -7,6 +7,11 @@ import { ROLES } from './constants'
 import type { Role } from './constants'
 import { createAuditLog } from './audit'
 
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.DATABASE_URL) console.error('[AUTH] Missing DATABASE_URL')
+  if (!process.env.AUTH_SECRET && !process.env.NEXTAUTH_SECRET) console.error('[AUTH] Missing AUTH_SECRET / NEXTAUTH_SECRET')
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     CredentialsProvider({
@@ -17,39 +22,54 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       async authorize(credentials) {
         const parsed = loginSchema.safeParse(credentials)
-        if (!parsed.success) return null
+        if (!parsed.success) {
+          console.error('[AUTH] Invalid login payload:', parsed.error.flatten())
+          return null
+        }
 
         const { email, password } = parsed.data
+        const normalizedEmail = email.toLowerCase()
 
-        const user = await prisma.user.findUnique({
-          where: { email },
-          include: {
-            workspaceMembers: {
-              include: {
-                workspace: {
-                  select: { id: true, name: true, slug: true, status: true },
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: normalizedEmail },
+            include: {
+              workspaceMembers: {
+                include: {
+                  workspace: {
+                    select: { id: true, name: true, slug: true, status: true },
+                  },
                 },
+                take: 1,
+                orderBy: { createdAt: 'asc' },
               },
-              take: 1,
-              orderBy: { createdAt: 'asc' },
             },
-          },
-        })
+          })
 
-        if (!user || !user.passwordHash) return null
+          if (!user || !user.passwordHash) {
+            console.error('[AUTH] User not found or no passwordHash:', normalizedEmail)
+            return null
+          }
 
-        const isValid = await bcrypt.compare(password, user.passwordHash)
-        if (!isValid) return null
+          const isValid = await bcrypt.compare(password, user.passwordHash)
+          if (!isValid) {
+            console.error('[AUTH] Password mismatch for:', normalizedEmail)
+            return null
+          }
 
-        const workspaceMember = user.workspaceMembers[0]
+          const workspaceMember = user.workspaceMembers[0]
 
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          image: user.image,
-          workspaceId: workspaceMember?.workspaceId || '',
-          role: workspaceMember?.role || 'VIEWER',
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            image: user.image,
+            workspaceId: workspaceMember?.workspaceId || '',
+            role: workspaceMember?.role || 'VIEWER',
+          }
+        } catch (error) {
+          console.error('[AUTH] authorize() failed:', error)
+          return null
         }
       },
     }),
@@ -100,5 +120,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     error: '/auth/error',
   },
   trustHost: true,
-  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || '511319ad04d106de3b7ebe317db223ed22122c31c13e63499b560d1b394cd081',
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
 })

@@ -47,5 +47,9 @@ next-env.d.ts
 .cursor/
 .devin/
 
+# sensitive files
+cookies.txt
+.env
+.env.local
+.env*.local
 .vercel
-.env*

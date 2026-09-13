@@ -7,7 +7,7 @@ import { sendEmail, renderPasswordResetEmail } from "@/lib/email";
 export async function POST(request: NextRequest) {
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  const { allowed, resetAt } = rateLimit(
+  const { allowed, resetAt } = await rateLimit(
     `forgot-password:${ip}`,
     5,
     60_000

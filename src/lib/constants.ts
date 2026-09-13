@@ -195,6 +195,18 @@ export const PLAN_LIMITS = {
     automations: 10,
     storage: 1 * 1024 * 1024 * 1024, // 1GB
   },
+  PRO: {
+    contacts: 20000,
+    messagesPerDay: 25000,
+    templates: 200,
+    campaigns: 50,
+    teamMembers: 15,
+    apiKeys: 10,
+    webhooks: 10,
+    chatbots: 5,
+    automations: 25,
+    storage: 5 * 1024 * 1024 * 1024, // 5GB
+  },
   BUSINESS: {
     contacts: 50000,
     messagesPerDay: 50000,

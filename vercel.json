@@ -1,1 +1,21 @@
-{}
+{
+  "buildCommand": "prisma generate && next build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "crons": [
+    {
+      "path": "/api/cron/campaigns",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/automations",
+      "schedule": "*/5 * * * *"
+    }
+  ],
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  }
+}
