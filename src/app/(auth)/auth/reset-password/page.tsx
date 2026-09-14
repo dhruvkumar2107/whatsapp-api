@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -12,7 +13,6 @@ import {
   EyeOff,
   LoaderCircle,
   LockKeyhole,
-  MessageCircle,
   CheckCircle2,
   XCircle,
 } from "lucide-react";
@@ -87,8 +87,14 @@ export default function ResetPasswordPage() {
     return (
       <div className="w-full">
         <div className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-lg shadow-emerald-500/30 ring-1 ring-white/20">
-            <MessageCircle className="h-7 w-7 text-white" />
+          <div className="mb-4 overflow-hidden rounded-2xl shadow-lg shadow-emerald-500/30 ring-1 ring-white/20">
+            <Image
+              src="/logo.png"
+              alt="WHAATOPRO"
+              width={56}
+              height={56}
+              className="h-14 w-14 object-contain"
+            />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
             WHAATOPRO
@@ -130,8 +136,14 @@ export default function ResetPasswordPage() {
     return (
       <div className="w-full">
         <div className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-lg shadow-emerald-500/30 ring-1 ring-white/20">
-            <MessageCircle className="h-7 w-7 text-white" />
+          <div className="mb-4 overflow-hidden rounded-2xl shadow-lg shadow-emerald-500/30 ring-1 ring-white/20">
+            <Image
+              src="/logo.png"
+              alt="WHAATOPRO"
+              width={56}
+              height={56}
+              className="h-14 w-14 object-contain"
+            />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
             WHAATOPRO
@@ -168,8 +180,14 @@ export default function ResetPasswordPage() {
   return (
     <div className="w-full">
       <div className="mb-8 flex flex-col items-center text-center">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-lg shadow-emerald-500/30 ring-1 ring-white/20">
-          <MessageCircle className="h-7 w-7 text-white" />
+        <div className="mb-4 overflow-hidden rounded-2xl shadow-lg shadow-emerald-500/30 ring-1 ring-white/20">
+          <Image
+            src="/logo.png"
+            alt="WHAATOPRO"
+            width={56}
+            height={56}
+            className="h-14 w-14 object-contain"
+          />
         </div>
         <h1 className="text-3xl font-bold tracking-tight text-white">
           WHAATOPRO

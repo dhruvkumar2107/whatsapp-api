@@ -1,7 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
-  MessageCircle,
   Zap,
   Users,
   BarChart3,
@@ -113,9 +113,14 @@ export default function LandingPage() {
       <header className="relative z-20 border-b border-border/50 bg-background/60 backdrop-blur-xl">
         <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/25">
-              <MessageCircle className="h-5 w-5 text-white" />
-            </div>
+            <Image
+              src="/logo.png"
+              alt="WHAATOPRO"
+              width={36}
+              height={36}
+              className="h-9 w-9 rounded-xl object-contain"
+              priority
+            />
             <span className="text-lg font-bold tracking-tight">WHAATOPRO</span>
           </Link>
 
@@ -455,9 +460,13 @@ export default function LandingPage() {
       <footer className="relative z-10 border-t border-border/50 bg-muted/20 backdrop-blur-sm">
         <div className="mx-auto flex flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600">
-              <MessageCircle className="h-3.5 w-3.5 text-white" />
-            </div>
+            <Image
+              src="/logo.png"
+              alt="WHAATOPRO"
+              width={28}
+              height={28}
+              className="h-7 w-7 rounded-lg object-contain"
+            />
             <span className="text-sm font-bold tracking-tight">WHAATOPRO</span>
           </div>
           <p className="text-xs text-muted-foreground">
