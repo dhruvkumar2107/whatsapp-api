@@ -89,13 +89,13 @@ export default function RegisterPage() {
   return (
     <div className="w-full">
       <div className="mb-8 flex flex-col items-center text-center">
-        <div className="mb-4 overflow-hidden rounded-2xl shadow-lg shadow-emerald-500/30 ring-1 ring-white/20">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-lg ring-1 ring-black/5">
           <Image
             src="/logo.png"
             alt="WHAATOPRO"
-            width={56}
-            height={56}
-            className="h-14 w-14 object-contain"
+            width={48}
+            height={48}
+            className="h-12 w-12 object-contain"
           />
         </div>
         <h1 className="text-3xl font-bold tracking-tight text-white">

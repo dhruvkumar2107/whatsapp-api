@@ -113,14 +113,16 @@ export default function LandingPage() {
       <header className="relative z-20 border-b border-border/50 bg-background/60 backdrop-blur-xl">
         <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-2.5">
-            <Image
-              src="/logo.png"
-              alt="WHAATOPRO"
-              width={36}
-              height={36}
-              className="h-9 w-9 rounded-xl object-contain"
-              priority
-            />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-black/5">
+              <Image
+                src="/logo.png"
+                alt="WHAATOPRO"
+                width={32}
+                height={32}
+                className="h-8 w-8 object-contain"
+                priority
+              />
+            </div>
             <span className="text-lg font-bold tracking-tight">WHAATOPRO</span>
           </Link>
 
@@ -460,13 +462,15 @@ export default function LandingPage() {
       <footer className="relative z-10 border-t border-border/50 bg-muted/20 backdrop-blur-sm">
         <div className="mx-auto flex flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
-            <Image
-              src="/logo.png"
-              alt="WHAATOPRO"
-              width={28}
-              height={28}
-              className="h-7 w-7 rounded-lg object-contain"
-            />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-black/5">
+              <Image
+                src="/logo.png"
+                alt="WHAATOPRO"
+                width={24}
+                height={24}
+                className="h-6 w-6 object-contain"
+              />
+            </div>
             <span className="text-sm font-bold tracking-tight">WHAATOPRO</span>
           </div>
           <p className="text-xs text-muted-foreground">
