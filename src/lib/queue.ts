@@ -16,10 +16,16 @@ export interface QueueJobData {
   attempts?: number
 }
 
+const isRedisAvailable = (): boolean => {
+  const url = (process.env.REDIS_URL || '').trim()
+  return url.length > 0
+}
+
 // Lazy queue initialization — only creates queues when Redis is available
 let _queues: Record<string, Queue> | null = null
 
 function getQueues(): Record<string, Queue> {
+  if (!isRedisAvailable()) return {}
   if (!_queues) {
     const connection = getRedisConnection()
     _queues = {
@@ -65,11 +71,40 @@ const QUEUE_MAP: Record<QueueName, string> = {
   'dead-letter': 'dead-letter',
 }
 
+// Inline processors — used when Redis is unavailable
+const inlineProcessors: Record<string, (data: QueueJobData) => Promise<void>> = {}
+
+export function registerInlineProcessor(
+  queueName: string,
+  processor: (data: QueueJobData) => Promise<void>
+): void {
+  inlineProcessors[queueName] = processor
+}
+
 export async function enqueueJob(
   queueName: QueueName,
   data: QueueJobData,
   options?: { delay?: number; priority?: number }
 ): Promise<Job<QueueJobData>> {
+  // When Redis is unavailable, execute inline (no-op queue, direct processing)
+  if (!isRedisAvailable()) {
+    const processor = inlineProcessors[queueName] || inlineProcessors[data.type]
+    if (processor) {
+      // Fire and forget — don't block the caller
+      Promise.resolve()
+        .then(() => processor(data))
+        .catch((err) => {
+          console.error(`[Queue:Inline] Job ${data.type} (${data.id}) failed:`, err)
+        })
+    }
+    // Return a mock Job object
+    return {
+      id: `inline-${data.id}`,
+      data,
+      name: data.type,
+    } as Job<QueueJobData>
+  }
+
   const allQueues = getQueues()
   const queueKey = QUEUE_MAP[queueName]
   const queue = allQueues[queueKey]
@@ -85,6 +120,24 @@ export function createWorker(
   queueName: QueueName,
   processor: (job: Job<QueueJobData>) => Promise<void>
 ): Worker<QueueJobData> {
+  // When Redis is unavailable, register as inline processor and return a mock worker
+  if (!isRedisAvailable()) {
+    console.log(`[Queue] Redis unavailable — registering inline processor for "${queueName}"`)
+    // Map queue name to relevant job types
+    const typeMap: Record<string, string> = {
+      messages: 'process-outgoing',
+      campaigns: 'process-campaign',
+      webhooks: 'dispatch-webhook',
+      automations: 'run-automation',
+    }
+    const jobType = typeMap[queueName] || queueName
+    registerInlineProcessor(jobType, async (data) => {
+      const mockJob = { data, id: data.id, name: data.type, attemptsMade: 0, opts: { attempts: 3 } } as Job<QueueJobData>
+      await processor(mockJob)
+    })
+    return { close: async () => {} } as unknown as Worker<QueueJobData>
+  }
+
   const connection = getRedisConnection()
   return new Worker<QueueJobData>(
     queueName,

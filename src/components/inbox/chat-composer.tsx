@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import { Send, Smile, Paperclip, FileText } from 'lucide-react'
+import { Send, Smile, Paperclip, FileText, Loader2, Image, Video } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 interface ChatComposerProps {
-  onSend: (message: { type: string; text?: string }) => void
+  onSend: (message: { type: string; text?: string; media?: { url: string; caption?: string; filename?: string } }) => void
   disabled?: boolean
 }
 
@@ -20,9 +20,19 @@ const EMOJI_GRID = [
   '\u{1F4BC}', '\u{1F4F1}',
 ]
 
+function getMediaType(mime: string): string {
+  if (mime.startsWith('image/')) return 'IMAGE'
+  if (mime.startsWith('video/')) return 'VIDEO'
+  if (mime.startsWith('audio/')) return 'AUDIO'
+  return 'DOCUMENT'
+}
+
 export function ChatComposer({ onSend, disabled }: ChatComposerProps) {
   const [text, setText] = useState('')
+  const [uploading, setUploading] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleSend = useCallback(() => {
     const trimmed = text.trim()
@@ -47,8 +57,56 @@ export function ChatComposer({ onSend, disabled }: ChatComposerProps) {
     textareaRef.current?.focus()
   }, [])
 
+  const uploadAndSend = useCallback(
+    async (file: File) => {
+      setUploading(true)
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        const res = await fetch('/api/media/upload', { method: 'POST', body: formData })
+        if (!res.ok) throw new Error('Upload failed')
+        const body = await res.json()
+        const mediaUrl = body.data?.url || body.data?.mediaUrl
+        if (!mediaUrl) throw new Error('No URL returned')
+        const type = getMediaType(file.type)
+        onSend({
+          type,
+          media: { url: mediaUrl, filename: file.name, caption: type === 'DOCUMENT' ? file.name : undefined },
+        })
+      } catch {
+        // Silently fail — user can retry
+      } finally {
+        setUploading(false)
+      }
+    },
+    [onSend]
+  )
+
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (file) uploadAndSend(file)
+      e.target.value = ''
+    },
+    [uploadAndSend]
+  )
+
   return (
     <div className="border-t bg-background p-4">
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*,video/*"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="audio/*,.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
       <div className="flex items-end gap-2">
         <div className="flex gap-0.5">
           <Popover>
@@ -57,7 +115,7 @@ export function ChatComposer({ onSend, disabled }: ChatComposerProps) {
                 variant="ghost"
                 size="icon"
                 className="size-9 shrink-0 text-muted-foreground"
-                disabled={disabled}
+                disabled={disabled || uploading}
               >
                 <Smile className="size-5" />
               </Button>
@@ -81,17 +139,21 @@ export function ChatComposer({ onSend, disabled }: ChatComposerProps) {
             variant="ghost"
             size="icon"
             className="size-9 shrink-0 text-muted-foreground"
-            disabled={disabled}
+            disabled={disabled || uploading}
+            onClick={() => imageInputRef.current?.click()}
+            title="Send image or video"
           >
-            <Paperclip className="size-5" />
+            {uploading ? <Loader2 className="size-5 animate-spin" /> : <Image className="size-5" />}
           </Button>
           <Button
             variant="ghost"
             size="icon"
             className="size-9 shrink-0 text-muted-foreground"
-            disabled={disabled}
+            disabled={disabled || uploading}
+            onClick={() => fileInputRef.current?.click()}
+            title="Send file or document"
           >
-            <FileText className="size-5" />
+            {uploading ? <Loader2 className="size-5 animate-spin" /> : <FileText className="size-5" />}
           </Button>
         </div>
         <Textarea
@@ -100,13 +162,13 @@ export function ChatComposer({ onSend, disabled }: ChatComposerProps) {
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Type a message..."
-          disabled={disabled}
+          disabled={disabled || uploading}
           className="min-h-[40px] max-h-32 resize-none"
           rows={1}
         />
         <Button
           onClick={handleSend}
-          disabled={disabled || !text.trim()}
+          disabled={disabled || uploading || !text.trim()}
           size="icon"
           className="size-9 shrink-0 bg-emerald-600 hover:bg-emerald-700"
         >

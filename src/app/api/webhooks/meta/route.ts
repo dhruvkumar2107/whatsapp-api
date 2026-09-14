@@ -116,6 +116,7 @@ async function handleIncomingMessage(payload: unknown) {
         button?: { id: string; title: string }
         list_reply?: { id: string; title: string; description: string }
       }
+      contacts?: Array<{ name: { formatted_name: string } }>
     }>
     metadata?: {
       display_phone_number: string
@@ -134,6 +135,10 @@ async function handleIncomingMessage(payload: unknown) {
   for (const message of data.messages) {
     const messageText =
       message.type === 'text' && message.text ? message.text.body : ''
+
+    // Extract profile name from WhatsApp contacts array
+    const profileName = message.contacts?.[0]?.name?.formatted_name || null
+
     let contact = await prisma.contact.findFirst({
       where: {
         workspaceId: account.workspaceId,
@@ -146,6 +151,7 @@ async function handleIncomingMessage(payload: unknown) {
         data: {
           workspaceId: account.workspaceId,
           phone: message.from,
+          name: profileName,
           optIn: true,
           source: 'whatsapp_webhook',
         },
@@ -158,6 +164,13 @@ async function handleIncomingMessage(payload: unknown) {
         { type: 'contact_created', contact, messageText },
         account.workspaceId
       ).catch(() => {})
+    } else if (profileName && !contact.name) {
+      // Update contact name from WhatsApp profile if we don't have one yet
+      await prisma.contact.update({
+        where: { id: contact.id },
+        data: { name: profileName },
+      })
+      contact.name = profileName
     }
 
     let conversation = await prisma.conversation.findFirst({
@@ -245,6 +258,21 @@ async function handleIncomingMessage(payload: unknown) {
       where: { id: contact.id },
       data: { lastMessageAt: new Date() },
     })
+
+    // Count as campaign reply if this contact was a campaign recipient
+    const campaignRecipient = await prisma.campaignRecipient.findFirst({
+      where: {
+        contactId: contact.id,
+        status: { in: ['SENT', 'DELIVERED', 'READ'] },
+      },
+      orderBy: { sentAt: 'desc' },
+    })
+    if (campaignRecipient) {
+      await prisma.campaign.update({
+        where: { id: campaignRecipient.campaignId },
+        data: { replies: { increment: 1 } },
+      })
+    }
 
     notifyConversationEvent(account.workspaceId, 'message.received', {
       conversationId: conversation.id,

@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import { encrypt, decrypt } from '@/lib/encryption'
+import { cacheSet } from '@/lib/redis'
 import prisma from '@/lib/prisma'
 import {
   WhatsAppProvider,
@@ -179,6 +180,9 @@ export class MetaProvider implements WhatsAppProvider {
 
     const baseUrl = params.redirectUri || `${process.env.NEXT_PUBLIC_APP_URL}/api/whatsapp/callback`
     const state = crypto.randomBytes(16).toString('hex')
+
+    // Store state for CSRF verification (valid for 10 minutes)
+    await cacheSet(`whatsapp_oauth_state:${state}`, params.workspaceId, 600)
 
     const scopes = [
       'whatsapp_business_management',

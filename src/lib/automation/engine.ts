@@ -302,7 +302,7 @@ async function executeAction(
             : unit === 'days'
               ? duration * 24 * 60 * 60 * 1000
               : duration * 60 * 1000
-      await new Promise((resolve) => setTimeout(resolve, Math.min(ms, 5 * 60 * 1000)))
+      await new Promise((resolve) => setTimeout(resolve, Math.min(ms, 24 * 60 * 60 * 1000)))
       break
     }
 

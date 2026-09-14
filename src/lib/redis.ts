@@ -78,6 +78,8 @@ export function getRedisConnection(): Redis {
 }
 
 export async function cacheGet<T>(key: string): Promise<T | null> {
+  const url = (process.env.REDIS_URL || '').trim()
+  if (!url) return null
   try {
     const data = await redis.get(key)
     return data ? (JSON.parse(data) as T) : null
@@ -87,6 +89,8 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
 }
 
 export async function cacheSet(key: string, value: unknown, ttlSeconds: number = 300): Promise<void> {
+  const url = (process.env.REDIS_URL || '').trim()
+  if (!url) return
   try {
     await redis.set(key, JSON.stringify(value), 'EX', ttlSeconds)
   } catch {
@@ -95,6 +99,8 @@ export async function cacheSet(key: string, value: unknown, ttlSeconds: number =
 }
 
 export async function cacheDel(pattern: string): Promise<void> {
+  const url = (process.env.REDIS_URL || '').trim()
+  if (!url) return
   try {
     const keys = await redis.keys(pattern)
     if (keys.length > 0) {

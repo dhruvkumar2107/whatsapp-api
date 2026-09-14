@@ -202,7 +202,7 @@ export default function InboxPage() {
   }, [messages, scrollToBottom])
 
   const handleSend = useCallback(
-    async (msg: { type: string; text?: string }) => {
+    async (msg: { type: string; text?: string; media?: { url: string; caption?: string; filename?: string } }) => {
       if (!selectedId) return
       setSending(true)
       const optimistic: MessageItem = {
@@ -210,7 +210,7 @@ export default function InboxPage() {
         type: msg.type,
         direction: 'OUTBOUND',
         status: 'QUEUED',
-        content: { text: msg.text },
+        content: msg.type === 'TEXT' ? { text: msg.text } : msg.media,
         createdAt: new Date().toISOString(),
         sentAt: null,
         deliveredAt: null,
@@ -219,14 +219,20 @@ export default function InboxPage() {
       }
       setMessages((prev) => [...prev, optimistic])
       try {
+        const body: Record<string, unknown> = { type: msg.type }
+        if (msg.type === 'TEXT') {
+          body.text = msg.text
+        } else {
+          body.media = msg.media
+        }
         const res = await fetch(`/api/conversations/${selectedId}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(msg),
+          body: JSON.stringify(body),
         })
-        const body = await res.json()
-        if (body.data) {
-          setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? body.data.message : m)))
+        const json = await res.json()
+        if (json.data) {
+          setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? json.data.message : m)))
         }
       } catch {
       } finally {

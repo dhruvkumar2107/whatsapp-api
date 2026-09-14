@@ -245,7 +245,7 @@ async function handleNode(
             : unit === 'days'
               ? value * 24 * 60 * 60 * 1000
               : value * 1000
-      await new Promise((resolve) => setTimeout(resolve, Math.min(ms, 5 * 60 * 1000)))
+      await new Promise((resolve) => setTimeout(resolve, Math.min(ms, 24 * 60 * 60 * 1000)))
       break
     }
 
@@ -373,7 +373,65 @@ async function handleNode(
     }
 
     case 'AI_AGENT': {
+      const apiKey = String(data.apiKey ?? process.env.OPENAI_API_KEY ?? '')
+      const model = String(data.model ?? 'gpt-4o-mini')
+      const systemPrompt = String(data.systemPrompt ?? 'You are a helpful assistant. Respond concisely and helpfully.')
       const fallback = String(data.fallbackMessage ?? '')
+
+      if (apiKey) {
+        try {
+          const history = await prisma.message.findMany({
+            where: {
+              conversationId: ctx.conversation?.id ?? '',
+              direction: 'INBOUND',
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+          })
+
+          const messages = [
+            { role: 'system', content: systemPrompt },
+            ...history.reverse().map((m) => ({
+              role: 'user' as const,
+              content: typeof m.content === 'object' && m.content !== null
+                ? String((m.content as { text?: string }).text ?? '')
+                : String(m.content ?? ''),
+            })),
+            { role: 'user' as const, content: getIncomingText(ctx) },
+          ]
+
+          const controller = new AbortController()
+          const timer = setTimeout(() => controller.abort(), 30000)
+
+          const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({ model, messages, max_tokens: 500 }),
+            signal: controller.signal,
+          })
+          clearTimeout(timer)
+
+          if (response.ok) {
+            const result = await response.json()
+            const aiReply = result.choices?.[0]?.message?.content
+            if (aiReply) {
+              await dispatchOutboundMessage(
+                ctx,
+                { type: 'TEXT', text: aiReply },
+                { skipUsage: true }
+              )
+              break
+            }
+          }
+        } catch {
+          // AI call failed — fall through to fallback
+        }
+      }
+
+      // Fallback: send static fallback message
       if (fallback) {
         await dispatchOutboundMessage(
           ctx,
