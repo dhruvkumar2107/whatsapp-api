@@ -279,8 +279,11 @@ export async function generateAIResponse(
   }
 
   try {
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
+    const openaiKey = process.env.OPENAI_API_KEY
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY
+    const provider = aiConfig.modelProvider || 'gemini'
+
+    if (!openaiKey && !geminiKey) {
       const fallbackResponse = generateFallbackResponse(intent, knowledge)
       return {
         response: fallbackResponse,
@@ -291,22 +294,56 @@ export async function generateAIResponse(
       }
     }
 
-    const modelId = aiConfig.modelId || 'gpt-4o-mini'
-    const apiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: modelId,
-        messages,
-        max_tokens: aiConfig.maxResponseLength || 1024,
-        temperature: aiConfig.temperature || 0.7,
-      }),
-    })
+    let aiText = ''
 
-    if (!apiResponse.ok) {
+    if (provider === 'gemini' && geminiKey) {
+      const modelId = aiConfig.modelId || 'gemini-2.0-flash'
+      const geminiMessages = [
+        { role: 'user', parts: [{ text: systemPrompt + '\n\n---\n\nCustomer message: ' + messageText }] },
+      ]
+
+      const apiResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: geminiMessages,
+            generationConfig: {
+              maxOutputTokens: aiConfig.maxResponseLength || 1024,
+              temperature: aiConfig.temperature || 0.7,
+            },
+          }),
+        }
+      )
+
+      if (apiResponse.ok) {
+        const result = await apiResponse.json()
+        aiText = result.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      }
+    } else if (openaiKey) {
+      const modelId = aiConfig.modelId || 'gpt-4o-mini'
+      const apiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify({
+          model: modelId,
+          messages,
+          max_tokens: aiConfig.maxResponseLength || 1024,
+          temperature: aiConfig.temperature || 0.7,
+        }),
+      })
+
+      if (apiResponse.ok) {
+        const result = await apiResponse.json()
+        aiText = result.choices?.[0]?.message?.content || ''
+      }
+    }
+
+    if (!aiText) {
       const fallbackResponse = generateFallbackResponse(intent, knowledge)
       return {
         response: fallbackResponse,
@@ -316,9 +353,6 @@ export async function generateAIResponse(
         shouldHandoff: false,
       }
     }
-
-    const result = await apiResponse.json()
-    const aiText = result.choices?.[0]?.message?.content || "I'm sorry, I couldn't process your request. Let me connect you with our team."
 
     return {
       response: aiText,

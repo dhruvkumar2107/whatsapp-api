@@ -27,6 +27,8 @@ export async function POST() {
         workspaceId: ctx.workspaceId,
         agentName: 'MySmartCard Assistant',
         systemInstructions: `You are the official MySmartCard WhatsApp assistant. You help customers with product information, pricing, ordering, delivery, and support. Be friendly, professional, and helpful. If you don't have information from the knowledge base, say you will connect the customer with the team. Never invent information.`,
+        modelProvider: 'gemini',
+        modelId: 'gemini-2.0-flash',
       },
     })
 
