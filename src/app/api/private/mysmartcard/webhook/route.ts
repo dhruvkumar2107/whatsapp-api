@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     const aiConfig = await prisma.mySmartCardAIConfig.findUnique({
-      where: { workspaceId: mySmartCardWorkspace.workspaceId },
+      where: { workspaceId: mySmartCardWorkspace.id },
     })
 
     if (!aiConfig || !aiConfig.isActive) {
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     if (!mySmartCardConv) {
       mySmartCardConv = await prisma.mySmartCardConversation.create({
         data: {
-          workspaceId: mySmartCardWorkspace.workspaceId,
+          workspaceId: mySmartCardWorkspace.id,
           conversationId: conversation.id,
           mode: 'AI',
         },
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
     )
 
     const aiResult = await generateAIResponse(
-      mySmartCardWorkspace.workspaceId,
+      mySmartCardWorkspace.id,
       messageText,
       conversationHistory
     )
@@ -147,13 +147,13 @@ export async function POST(request: NextRequest) {
     })
 
     let lead = await prisma.mySmartCardLead.findFirst({
-      where: { workspaceId: mySmartCardWorkspace.workspaceId, phone: from },
+      where: { workspaceId: mySmartCardWorkspace.id, phone: from },
     })
 
     if (!lead) {
       lead = await prisma.mySmartCardLead.create({
         data: {
-          workspaceId: mySmartCardWorkspace.workspaceId,
+          workspaceId: mySmartCardWorkspace.id,
           contactId: contact.id,
           phone: from,
           name: contact.name,

@@ -24,11 +24,11 @@ export async function POST() {
 
     await prisma.mySmartCardAIConfig.create({
       data: {
-        workspaceId: ctx.workspaceId,
+        workspaceId: ctx.mySmartCardWorkspace.id,
         agentName: 'MySmartCard Assistant',
         systemInstructions: `You are the official MySmartCard WhatsApp assistant. You help customers with product information, pricing, ordering, delivery, and support. Be friendly, professional, and helpful. If you don't have information from the knowledge base, say you will connect the customer with the team. Never invent information.`,
         modelProvider: 'gemini',
-        modelId: 'gemini-2.0-flash',
+        modelId: 'gemini-3.6-flash',
       },
     })
 
@@ -36,7 +36,7 @@ export async function POST() {
     for (const type of policyTypes) {
       await prisma.mySmartCardPolicy.create({
         data: {
-          workspaceId: ctx.workspaceId,
+          workspaceId: ctx.mySmartCardWorkspace.id,
           type,
           title: type.charAt(0).toUpperCase() + type.slice(1),
           content: `${type.charAt(0).toUpperCase() + type.slice(1)} policy information to be configured.`,

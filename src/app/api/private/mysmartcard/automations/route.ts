@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || ''
     const isActive = searchParams.get('isActive')
 
-    const where: Record<string, unknown> = { workspaceId: ctx.workspaceId }
+    const where: Record<string, unknown> = { workspaceId: ctx.mySmartCardWorkspace.id }
     if (search) where.OR = [{ name: { contains: search, mode: 'insensitive' } }, { description: { contains: search, mode: 'insensitive' } }]
     if (isActive !== null && isActive !== undefined) where.isActive = isActive === 'true'
 
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     const automation = await prisma.mySmartCardAutomation.create({
       data: {
-        workspaceId: ctx.workspaceId,
+        workspaceId: ctx.mySmartCardWorkspace.id,
         name: body.name,
         description: body.description || '',
         trigger: body.trigger || {},

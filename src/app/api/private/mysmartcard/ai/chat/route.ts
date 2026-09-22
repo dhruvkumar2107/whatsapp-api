@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    if (!mySmartCardConv || mySmartCardConv.workspaceId !== ctx.workspaceId) {
+    if (!mySmartCardConv || mySmartCardConv.workspaceId !== ctx.mySmartCardWorkspace.id) {
       return NextResponse.json(
         { success: false, error: { message: 'Conversation not found', code: 'NOT_FOUND' } },
         { status: 404 }
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       content: typeof msg.content === 'string' ? msg.content : '',
     }))
 
-    const aiResult = await generateAIResponse(ctx.workspaceId, message, conversationHistory)
+    const aiResult = await generateAIResponse(ctx.mySmartCardWorkspace.id, message, conversationHistory)
 
     await prisma.mySmartCardConversationEvent.create({
       data: {

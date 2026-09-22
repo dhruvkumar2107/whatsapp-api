@@ -41,7 +41,7 @@ export async function POST() {
     })
 
     if (!mySmartCard) {
-      await prisma.mySmartCardWorkspace.create({
+      const created = await prisma.mySmartCardWorkspace.create({
         data: {
           workspaceId: workspace.id,
           businessName: 'MySmartCard',
@@ -50,11 +50,11 @@ export async function POST() {
 
       await prisma.mySmartCardAIConfig.create({
         data: {
-          workspaceId: workspace.id,
+          workspaceId: created.id,
           agentName: 'MySmartCard Assistant',
           systemInstructions: 'You are the official MySmartCard WhatsApp assistant. Help customers with products, pricing, orders, and support. Be friendly and professional.',
           modelProvider: 'gemini',
-          modelId: 'gemini-2.0-flash',
+          modelId: 'gemini-3.6-flash',
         },
       })
     }

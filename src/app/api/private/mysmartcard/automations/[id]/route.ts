@@ -10,7 +10,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const body = await request.json()
 
     const automation = await prisma.mySmartCardAutomation.findFirst({
-      where: { id, workspaceId: ctx.workspaceId },
+      where: { id, workspaceId: ctx.mySmartCardWorkspace.id },
     })
 
     if (!automation) {
@@ -41,7 +41,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const { id } = await params
 
     const automation = await prisma.mySmartCardAutomation.findFirst({
-      where: { id, workspaceId: ctx.workspaceId },
+      where: { id, workspaceId: ctx.mySmartCardWorkspace.id },
     })
 
     if (!automation) {

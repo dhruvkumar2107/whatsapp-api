@@ -9,7 +9,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params
 
     const conversation = await prisma.mySmartCardConversation.findFirst({
-      where: { id, workspaceId: ctx.workspaceId },
+      where: { id, workspaceId: ctx.mySmartCardWorkspace.id },
       include: {
         conversation: {
           include: {

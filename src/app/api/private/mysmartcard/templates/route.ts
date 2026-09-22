@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') || ''
     const category = searchParams.get('category') || ''
 
-    const where: Record<string, unknown> = { workspaceId: ctx.workspaceId }
+    const where: Record<string, unknown> = { workspaceId: ctx.mySmartCardWorkspace.id }
     if (status) where.status = status
     if (category) where.category = category
 
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     const template = await prisma.mySmartCardTemplate.create({
       data: {
-        workspaceId: ctx.workspaceId,
+        workspaceId: ctx.mySmartCardWorkspace.id,
         name: body.name,
         category: body.category,
         language: body.language || 'en',

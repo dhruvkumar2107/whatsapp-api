@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const sortBy = searchParams.get('sortBy') || 'createdAt'
     const sortOrder = searchParams.get('sortOrder') || 'desc'
 
-    const where: Record<string, unknown> = { workspaceId: ctx.workspaceId }
+    const where: Record<string, unknown> = { workspaceId: ctx.mySmartCardWorkspace.id }
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     const lead = await prisma.mySmartCardLead.create({
       data: {
-        workspaceId: ctx.workspaceId,
+        workspaceId: ctx.mySmartCardWorkspace.id,
         contactId: body.contactId || null,
         name: body.name || '',
         phone: body.phone,

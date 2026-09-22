@@ -297,7 +297,7 @@ export async function generateAIResponse(
     let aiText = ''
 
     if (provider === 'gemini' && geminiKey) {
-      const modelId = aiConfig.modelId || 'gemini-2.0-flash'
+      const modelId = aiConfig.modelId || 'gemini-3.6-flash'
       const geminiMessages = [
         { role: 'user', parts: [{ text: systemPrompt + '\n\n---\n\nCustomer message: ' + messageText }] },
       ]

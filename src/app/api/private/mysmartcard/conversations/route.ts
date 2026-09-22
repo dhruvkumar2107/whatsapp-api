@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') || ''
     const mode = searchParams.get('mode') || ''
 
-    const where: Record<string, unknown> = { workspaceId: ctx.workspaceId, isActive: true }
+    const where: Record<string, unknown> = { workspaceId: ctx.mySmartCardWorkspace.id, isActive: true }
     if (status) where.conversation = { status }
     if (mode) where.mode = mode
 

@@ -26,14 +26,14 @@ export async function GET() {
       leadStatusDistribution,
       conversationsOverTime,
     ] = await Promise.all([
-      prisma.mySmartCardConversation.count({ where: { workspaceId: ctx.workspaceId, isActive: true } }),
-      prisma.mySmartCardConversation.count({ where: { workspaceId: ctx.workspaceId, createdAt: { gte: todayStart } } }),
-      prisma.mySmartCardLead.count({ where: { workspaceId: ctx.workspaceId } }),
-      prisma.mySmartCardLead.count({ where: { workspaceId: ctx.workspaceId, status: 'NEW' } }),
-      prisma.mySmartCardLead.count({ where: { workspaceId: ctx.workspaceId, status: 'QUALIFIED' } }),
-      prisma.mySmartCardConversation.count({ where: { workspaceId: ctx.workspaceId, mode: 'AI' } }),
-      prisma.mySmartCardConversation.count({ where: { workspaceId: ctx.workspaceId, mode: 'HUMAN' } }),
-      prisma.mySmartCardProduct.count({ where: { workspaceId: ctx.workspaceId } }),
+      prisma.mySmartCardConversation.count({ where: { workspaceId: ctx.mySmartCardWorkspace.id, isActive: true } }),
+      prisma.mySmartCardConversation.count({ where: { workspaceId: ctx.mySmartCardWorkspace.id, createdAt: { gte: todayStart } } }),
+      prisma.mySmartCardLead.count({ where: { workspaceId: ctx.mySmartCardWorkspace.id } }),
+      prisma.mySmartCardLead.count({ where: { workspaceId: ctx.mySmartCardWorkspace.id, status: 'NEW' } }),
+      prisma.mySmartCardLead.count({ where: { workspaceId: ctx.mySmartCardWorkspace.id, status: 'QUALIFIED' } }),
+      prisma.mySmartCardConversation.count({ where: { workspaceId: ctx.mySmartCardWorkspace.id, mode: 'AI' } }),
+      prisma.mySmartCardConversation.count({ where: { workspaceId: ctx.mySmartCardWorkspace.id, mode: 'HUMAN' } }),
+      prisma.mySmartCardProduct.count({ where: { workspaceId: ctx.mySmartCardWorkspace.id } }),
       prisma.message.count({
         where: {
           conversation: { workspaceId: ctx.workspaceId },
@@ -41,13 +41,13 @@ export async function GET() {
         },
       }),
       prisma.mySmartCardLead.findMany({
-        where: { workspaceId: ctx.workspaceId },
+        where: { workspaceId: ctx.mySmartCardWorkspace.id },
         orderBy: { createdAt: 'desc' },
         take: 5,
         include: { product: { select: { name: true } } },
       }),
       prisma.mySmartCardConversation.findMany({
-        where: { workspaceId: ctx.workspaceId },
+        where: { workspaceId: ctx.mySmartCardWorkspace.id },
         orderBy: { createdAt: 'desc' },
         take: 5,
         include: {
@@ -57,12 +57,12 @@ export async function GET() {
       }),
       prisma.mySmartCardConversation.groupBy({
         by: ['detectedIntent'],
-        where: { workspaceId: ctx.workspaceId, detectedIntent: { not: null } },
+        where: { workspaceId: ctx.mySmartCardWorkspace.id, detectedIntent: { not: null } },
         _count: true,
       }),
       prisma.mySmartCardLead.groupBy({
         by: ['status'],
-        where: { workspaceId: ctx.workspaceId },
+        where: { workspaceId: ctx.mySmartCardWorkspace.id },
         _count: true,
       }),
       (async () => {
@@ -73,7 +73,7 @@ export async function GET() {
           const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)
           const count = await prisma.mySmartCardConversation.count({
             where: {
-              workspaceId: ctx.workspaceId,
+              workspaceId: ctx.mySmartCardWorkspace.id,
               createdAt: { gte: dayStart, lt: dayEnd },
             },
           })

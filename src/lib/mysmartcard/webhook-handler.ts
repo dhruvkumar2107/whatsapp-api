@@ -23,7 +23,7 @@ export async function handleMySmartCardMessage(ctx: MessageContext): Promise<boo
   if (!mySmartCardWorkspace) return false
 
   const aiConfig = await prisma.mySmartCardAIConfig.findUnique({
-    where: { workspaceId: ctx.workspaceId },
+    where: { workspaceId: mySmartCardWorkspace.id },
   })
 
   if (!aiConfig || !aiConfig.isActive) return false
@@ -37,7 +37,7 @@ export async function handleMySmartCardMessage(ctx: MessageContext): Promise<boo
   if (!mySmartCardConv) {
     mySmartCardConv = await prisma.mySmartCardConversation.create({
       data: {
-        workspaceId: ctx.workspaceId,
+        workspaceId: mySmartCardWorkspace.id,
         conversationId: ctx.conversation.id,
         mode: 'AI',
       },
@@ -60,7 +60,7 @@ export async function handleMySmartCardMessage(ctx: MessageContext): Promise<boo
   )
 
   const aiResult = await generateAIResponse(
-    ctx.workspaceId,
+    mySmartCardWorkspace.id,
     ctx.messageText,
     conversationHistory
   )
@@ -86,13 +86,13 @@ export async function handleMySmartCardMessage(ctx: MessageContext): Promise<boo
   })
 
   let lead = await prisma.mySmartCardLead.findFirst({
-    where: { workspaceId: ctx.workspaceId, phone: ctx.from },
+    where: { workspaceId: mySmartCardWorkspace.id, phone: ctx.from },
   })
 
   if (!lead) {
     lead = await prisma.mySmartCardLead.create({
       data: {
-        workspaceId: ctx.workspaceId,
+        workspaceId: mySmartCardWorkspace.id,
         contactId: ctx.contact.id,
         phone: ctx.from,
         name: ctx.contact.name,

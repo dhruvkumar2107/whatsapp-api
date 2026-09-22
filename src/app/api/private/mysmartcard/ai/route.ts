@@ -8,7 +8,7 @@ export async function GET() {
     const ctx = await getMySmartCardContext()
 
     const aiConfig = await prisma.mySmartCardAIConfig.findUnique({
-      where: { workspaceId: ctx.workspaceId },
+      where: { workspaceId: ctx.mySmartCardWorkspace.id },
     })
 
     return NextResponse.json({ success: true, data: aiConfig })
@@ -23,7 +23,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
 
     const updated = await prisma.mySmartCardAIConfig.update({
-      where: { workspaceId: ctx.workspaceId },
+      where: { workspaceId: ctx.mySmartCardWorkspace.id },
       data: {
         agentName: body.agentName,
         personality: body.personality,

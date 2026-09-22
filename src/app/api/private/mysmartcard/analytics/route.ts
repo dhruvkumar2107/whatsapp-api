@@ -28,27 +28,27 @@ export async function GET(request: NextRequest) {
       modeBreakdown,
     ] = await Promise.all([
       prisma.mySmartCardConversation.count({
-        where: { workspaceId: ctx.workspaceId, createdAt: { gte: startDate } },
+        where: { workspaceId: ctx.mySmartCardWorkspace.id, createdAt: { gte: startDate } },
       }),
       prisma.mySmartCardConversation.findMany({
-        where: { workspaceId: ctx.workspaceId, createdAt: { gte: startDate } },
+        where: { workspaceId: ctx.mySmartCardWorkspace.id, createdAt: { gte: startDate } },
         select: { conversationId: true },
         distinct: ['conversationId'],
       }).then((r) => r.length),
       prisma.mySmartCardConversation.count({
-        where: { workspaceId: ctx.workspaceId, mode: 'AI', createdAt: { gte: startDate } },
+        where: { workspaceId: ctx.mySmartCardWorkspace.id, mode: 'AI', createdAt: { gte: startDate } },
       }),
       prisma.mySmartCardConversation.count({
-        where: { workspaceId: ctx.workspaceId, mode: 'HUMAN', createdAt: { gte: startDate } },
+        where: { workspaceId: ctx.mySmartCardWorkspace.id, mode: 'HUMAN', createdAt: { gte: startDate } },
       }),
       prisma.mySmartCardLead.count({
-        where: { workspaceId: ctx.workspaceId, createdAt: { gte: startDate } },
+        where: { workspaceId: ctx.mySmartCardWorkspace.id, createdAt: { gte: startDate } },
       }),
       prisma.mySmartCardLead.count({
-        where: { workspaceId: ctx.workspaceId, status: 'QUALIFIED', createdAt: { gte: startDate } },
+        where: { workspaceId: ctx.mySmartCardWorkspace.id, status: 'QUALIFIED', createdAt: { gte: startDate } },
       }),
       prisma.mySmartCardLead.count({
-        where: { workspaceId: ctx.workspaceId, status: 'CONVERTED', createdAt: { gte: startDate } },
+        where: { workspaceId: ctx.mySmartCardWorkspace.id, status: 'CONVERTED', createdAt: { gte: startDate } },
       }),
       (async () => {
         const daysArr: Array<{ date: string; conversations: number; leads: number }> = []
@@ -58,10 +58,10 @@ export async function GET(request: NextRequest) {
           const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)
           const [convCount, leadCount] = await Promise.all([
             prisma.mySmartCardConversation.count({
-              where: { workspaceId: ctx.workspaceId, createdAt: { gte: dayStart, lt: dayEnd } },
+              where: { workspaceId: ctx.mySmartCardWorkspace.id, createdAt: { gte: dayStart, lt: dayEnd } },
             }),
             prisma.mySmartCardLead.count({
-              where: { workspaceId: ctx.workspaceId, createdAt: { gte: dayStart, lt: dayEnd } },
+              where: { workspaceId: ctx.mySmartCardWorkspace.id, createdAt: { gte: dayStart, lt: dayEnd } },
             }),
           ])
           daysArr.push({ date: dayStart.toISOString().split('T')[0], conversations: convCount, leads: leadCount })
@@ -70,22 +70,22 @@ export async function GET(request: NextRequest) {
       })(),
       prisma.mySmartCardConversation.groupBy({
         by: ['detectedIntent'],
-        where: { workspaceId: ctx.workspaceId, detectedIntent: { not: null }, createdAt: { gte: startDate } },
+        where: { workspaceId: ctx.mySmartCardWorkspace.id, detectedIntent: { not: null }, createdAt: { gte: startDate } },
         _count: true,
       }),
       prisma.mySmartCardLead.groupBy({
         by: ['productId'],
-        where: { workspaceId: ctx.workspaceId, productId: { not: null }, createdAt: { gte: startDate } },
+        where: { workspaceId: ctx.mySmartCardWorkspace.id, productId: { not: null }, createdAt: { gte: startDate } },
         _count: true,
       }),
       prisma.mySmartCardLead.groupBy({
         by: ['status'],
-        where: { workspaceId: ctx.workspaceId, createdAt: { gte: startDate } },
+        where: { workspaceId: ctx.mySmartCardWorkspace.id, createdAt: { gte: startDate } },
         _count: true,
       }),
       prisma.mySmartCardConversation.groupBy({
         by: ['mode'],
-        where: { workspaceId: ctx.workspaceId, createdAt: { gte: startDate } },
+        where: { workspaceId: ctx.mySmartCardWorkspace.id, createdAt: { gte: startDate } },
         _count: true,
       }),
     ])

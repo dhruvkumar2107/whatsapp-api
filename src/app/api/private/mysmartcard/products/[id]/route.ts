@@ -9,7 +9,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params
 
     const product = await prisma.mySmartCardProduct.findFirst({
-      where: { id, workspaceId: ctx.workspaceId },
+      where: { id, workspaceId: ctx.mySmartCardWorkspace.id },
       include: { media: true, faqs: true },
     })
 
@@ -30,7 +30,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const body = await request.json()
 
     const product = await prisma.mySmartCardProduct.findFirst({
-      where: { id, workspaceId: ctx.workspaceId },
+      where: { id, workspaceId: ctx.mySmartCardWorkspace.id },
     })
 
     if (!product) {
@@ -65,7 +65,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const { id } = await params
 
     const product = await prisma.mySmartCardProduct.findFirst({
-      where: { id, workspaceId: ctx.workspaceId },
+      where: { id, workspaceId: ctx.mySmartCardWorkspace.id },
     })
 
     if (!product) {

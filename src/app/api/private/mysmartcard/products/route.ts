@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category') || ''
     const available = searchParams.get('available')
 
-    const where: Record<string, unknown> = { workspaceId: ctx.workspaceId }
+    const where: Record<string, unknown> = { workspaceId: ctx.mySmartCardWorkspace.id }
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     const product = await prisma.mySmartCardProduct.create({
       data: {
-        workspaceId: ctx.workspaceId,
+        workspaceId: ctx.mySmartCardWorkspace.id,
         name: body.name,
         slug,
         description: body.description || '',

@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') || 'all'
     const search = searchParams.get('search') || ''
 
-    const where: Record<string, unknown> = { workspaceId: ctx.workspaceId }
+    const where: Record<string, unknown> = { workspaceId: ctx.mySmartCardWorkspace.id }
 
     if (search) {
       where.OR = [
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     if (body.type === 'document') {
       const doc = await prisma.mySmartCardKnowledgeDocument.create({
         data: {
-          workspaceId: ctx.workspaceId,
+          workspaceId: ctx.mySmartCardWorkspace.id,
           title: body.title,
           content: body.content,
           sourceType: body.sourceType || 'text',
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     if (body.type === 'faq') {
       const faq = await prisma.mySmartCardFAQ.create({
         data: {
-          workspaceId: ctx.workspaceId,
+          workspaceId: ctx.mySmartCardWorkspace.id,
           productId: body.productId || null,
           question: body.question,
           answer: body.answer,
@@ -78,10 +78,10 @@ export async function POST(request: NextRequest) {
 
     if (body.type === 'policy') {
       const policy = await prisma.mySmartCardPolicy.upsert({
-        where: { workspaceId_type: { workspaceId: ctx.workspaceId, type: body.policyType } },
+        where: { workspaceId_type: { workspaceId: ctx.mySmartCardWorkspace.id, type: body.policyType } },
         update: { title: body.title, content: body.content },
         create: {
-          workspaceId: ctx.workspaceId,
+          workspaceId: ctx.mySmartCardWorkspace.id,
           type: body.policyType,
           title: body.title,
           content: body.content,

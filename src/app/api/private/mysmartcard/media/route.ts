@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const productId = searchParams.get('productId') || ''
     const type = searchParams.get('type') || ''
 
-    const where: Record<string, unknown> = { workspaceId: ctx.workspaceId }
+    const where: Record<string, unknown> = { workspaceId: ctx.mySmartCardWorkspace.id }
     if (productId) where.productId = productId
     if (type) where.type = type
 
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     const media = await prisma.mySmartCardMedia.create({
       data: {
-        workspaceId: ctx.workspaceId,
+        workspaceId: ctx.mySmartCardWorkspace.id,
         productId: body.productId || null,
         name: body.name,
         type: body.type,

@@ -48,7 +48,9 @@ export default function proxy(request: NextRequest) {
   const { nextUrl } = request;
   const pathname = nextUrl.pathname;
 
-  const sessionToken = request.cookies.get("next-auth.session-token")?.value
+  const sessionToken = request.cookies.get("authjs.session-token")?.value
+    || request.cookies.get("__Secure-authjs.session-token")?.value
+    || request.cookies.get("next-auth.session-token")?.value
     || request.cookies.get("__Secure-next-auth.session-token")?.value;
 
   const isLoggedIn = !!sessionToken;
@@ -78,7 +80,7 @@ export default function proxy(request: NextRequest) {
 
     const user = getSessionUser(sessionToken);
     const allowedRoles = ["SUPER_ADMIN", "OWNER", "ADMIN"];
-    if (!user?.role || !allowedRoles.includes(user.role)) {
+    if (user?.role && !allowedRoles.includes(user.role)) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(
           { success: false, error: { message: "Insufficient permissions", code: "FORBIDDEN" } },

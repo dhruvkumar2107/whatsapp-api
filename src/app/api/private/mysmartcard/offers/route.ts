@@ -7,7 +7,7 @@ export async function GET() {
   try {
     const ctx = await getMySmartCardContext()
     const offers = await prisma.mySmartCardOffer.findMany({
-      where: { workspaceId: ctx.workspaceId },
+      where: { workspaceId: ctx.mySmartCardWorkspace.id },
       orderBy: { createdAt: 'desc' },
     })
     return NextResponse.json({ success: true, data: offers })
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const offer = await prisma.mySmartCardOffer.create({
       data: {
-        workspaceId: ctx.workspaceId,
+        workspaceId: ctx.mySmartCardWorkspace.id,
         name: body.name,
         description: body.description,
         discount: body.discount || null,

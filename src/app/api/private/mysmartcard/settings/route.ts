@@ -9,8 +9,8 @@ export async function GET() {
 
     const [workspace, aiConfig, settings] = await Promise.all([
       prisma.mySmartCardWorkspace.findUnique({ where: { workspaceId: ctx.workspaceId } }),
-      prisma.mySmartCardAIConfig.findUnique({ where: { workspaceId: ctx.workspaceId } }),
-      prisma.mySmartCardSetting.findMany({ where: { workspaceId: ctx.workspaceId } }),
+      prisma.mySmartCardAIConfig.findUnique({ where: { workspaceId: ctx.mySmartCardWorkspace.id } }),
+      prisma.mySmartCardSetting.findMany({ where: { workspaceId: ctx.mySmartCardWorkspace.id } }),
     ])
 
     return NextResponse.json({
@@ -43,7 +43,7 @@ export async function PUT(request: NextRequest) {
 
     if (body.aiConfig) {
       await prisma.mySmartCardAIConfig.update({
-        where: { workspaceId: ctx.workspaceId },
+        where: { workspaceId: ctx.mySmartCardWorkspace.id },
         data: {
           agentName: body.aiConfig.agentName,
           personality: body.aiConfig.personality,
@@ -61,9 +61,9 @@ export async function PUT(request: NextRequest) {
     if (body.settings) {
       for (const [key, value] of Object.entries(body.settings)) {
         await prisma.mySmartCardSetting.upsert({
-          where: { workspaceId_key: { workspaceId: ctx.workspaceId, key } },
+          where: { workspaceId_key: { workspaceId: ctx.mySmartCardWorkspace.id, key } },
           update: { value: value as object },
-          create: { workspaceId: ctx.workspaceId, key, value: value as object },
+          create: { workspaceId: ctx.mySmartCardWorkspace.id, key, value: value as object },
         })
       }
     }

@@ -12,7 +12,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     if (type === 'document') {
       const doc = await prisma.mySmartCardKnowledgeDocument.findFirst({
-        where: { id, workspaceId: ctx.workspaceId },
+        where: { id, workspaceId: ctx.mySmartCardWorkspace.id },
       })
       if (!doc) {
         return NextResponse.json({ success: false, error: { message: 'Document not found', code: 'NOT_FOUND' } }, { status: 404 })
@@ -20,7 +20,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       await prisma.mySmartCardKnowledgeDocument.delete({ where: { id } })
     } else if (type === 'faq') {
       const faq = await prisma.mySmartCardFAQ.findFirst({
-        where: { id, workspaceId: ctx.workspaceId },
+        where: { id, workspaceId: ctx.mySmartCardWorkspace.id },
       })
       if (!faq) {
         return NextResponse.json({ success: false, error: { message: 'FAQ not found', code: 'NOT_FOUND' } }, { status: 404 })
