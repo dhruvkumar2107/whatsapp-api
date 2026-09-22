@@ -8,6 +8,7 @@ import { resumeChatbot, findAndRunChatbot } from '@/lib/chatbot/engine'
 import { dispatchWebhook } from '@/lib/webhooks/dispatcher'
 import { rateLimit } from '@/lib/rate-limit'
 import { notifyConversationEvent } from '@/app/api/conversations/events/route'
+import { handleMySmartCardMessage } from '@/lib/mysmartcard/webhook-handler'
 
 const VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || 'default_verify_token'
 
@@ -286,13 +287,26 @@ async function handleIncomingMessage(payload: unknown) {
       workspaceId: account.workspaceId,
     }).catch(() => {})
 
-    void resumeChatbot(account.workspaceId, contact, conversation, messageText)
-      .then(async (resumed) => {
-        if (!resumed) {
-          await findAndRunChatbot(account.workspaceId, contact, conversation, messageText)
-        }
-      })
-      .catch(() => {})
+    const mySmartCardHandled = await handleMySmartCardMessage({
+      workspaceId: account.workspaceId,
+      phoneNumberId: account.phoneNumberId,
+      contact,
+      conversation,
+      messageText,
+      messageType,
+      messageId: message.id,
+      from: message.from,
+    }).catch(() => false)
+
+    if (!mySmartCardHandled) {
+      void resumeChatbot(account.workspaceId, contact, conversation, messageText)
+        .then(async (resumed) => {
+          if (!resumed) {
+            await findAndRunChatbot(account.workspaceId, contact, conversation, messageText)
+          }
+        })
+        .catch(() => {})
+    }
 
     void triggerAutomations(
       { type: 'message_received', contact, messageText, variables: { last_message: messageText } },
