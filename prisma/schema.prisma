@@ -166,6 +166,44 @@ enum TicketStatus {
   CLOSED
 }
 
+// ─── MySmartCard Enums ──────────────────────────────────────────────────────
+
+enum MySmartCardLeadStatus {
+  NEW
+  CONTACTED
+  INTERESTED
+  QUALIFIED
+  PAYMENT_PENDING
+  PURCHASED
+  FOLLOW_UP
+  CONVERTED
+  LOST
+}
+
+enum MySmartCardIntent {
+  GREETING
+  PRODUCT_INFO
+  PRODUCT_PRICING
+  PRODUCT_COMPARISON
+  PRODUCT_MEDIA_REQUEST
+  ORDER_INTENT
+  PURCHASE_INTENT
+  SUPPORT
+  SHIPPING
+  PAYMENT
+  REFUND
+  RETURN
+  OFFER
+  HUMAN_AGENT
+  OTHER
+}
+
+enum MySmartCardConversationMode {
+  AI
+  HUMAN
+  HYBRID
+}
+
 // ─── Auth & Users ────────────────────────────────────────────────────────────
 
 model User {
@@ -191,6 +229,7 @@ model User {
   accounts              Account[]
   sessions              Session[]
   passwordResetTokens   PasswordResetToken[]
+  mySmartCardAssignedLeads MySmartCardLead[]
 
   @@index([email])
   @@index([phone])
@@ -281,6 +320,7 @@ model Workspace {
   notificationPreferences NotificationPreference[]
   supportTickets         SupportTicket[]
   auditLogs         AuditLog[]
+  mySmartCard       MySmartCardWorkspace?
 
   @@index([slug])
   @@index([createdAt])
@@ -366,6 +406,7 @@ model Contact {
   conversations   Conversation[]
   campaignRecipients CampaignRecipient[]
   automationExecutions AutomationExecution[]
+  mySmartCardLeads MySmartCardLead[]
 
   @@unique([workspaceId, phone])
   @@index([workspaceId])
@@ -454,6 +495,7 @@ model Conversation {
   whatsappAccount WhatsAppAccount @relation(fields: [whatsappAccountId], references: [id], onDelete: Cascade)
   assignedAgent  User?          @relation("AssignedAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
   messages       Message[]
+  mySmartCardConversation MySmartCardConversation?
 
   @@index([workspaceId])
   @@index([contactId])
@@ -963,4 +1005,323 @@ model AuditLog {
   @@index([resourceId])
   @@index([createdAt])
   @@index([workspaceId, createdAt])
+}
+
+// ─── MySmartCard Private Business Module ─────────────────────────────────────
+
+model MySmartCardWorkspace {
+  id              String   @id @default(uuid())
+  workspaceId     String
+  businessName    String   @default("MySmartCard")
+  website         String?
+  contactEmail    String?
+  contactPhone    String?
+  address         String?
+  supportHours    String?
+  whatsappNumber  String?
+  wabaId          String?
+  phoneNumberId   String?
+  whatsappStatus  WhatsAppStatus @default(DISCONNECTED)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace       Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  aiConfig        MySmartCardAIConfig?
+  products        MySmartCardProduct[]
+  knowledgeDocs   MySmartCardKnowledgeDocument[]
+  faqs            MySmartCardFAQ[]
+  policies        MySmartCardPolicy[]
+  offers          MySmartCardOffer[]
+  leads           MySmartCardLead[]
+  conversations   MySmartCardConversation[]
+  automations     MySmartCardAutomation[]
+  media           MySmartCardMedia[]
+  templates       MySmartCardTemplate[]
+  settings        MySmartCardSetting[]
+
+  @@unique([workspaceId])
+  @@index([workspaceId])
+}
+
+model MySmartCardAIConfig {
+  id                  String   @id @default(uuid())
+  workspaceId         String
+  agentName           String   @default("MySmartCard Assistant")
+  personality         String   @default("Friendly, Professional, Helpful, Concise")
+  systemInstructions  String   @db.Text
+  modelProvider       String   @default("openai")
+  modelId             String   @default("gpt-4o-mini")
+  temperature         Float    @default(0.7)
+  maxResponseLength   Int      @default(1024)
+  fallbackBehavior    String   @default("transfer_to_human")
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  workspace MySmartCardWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId])
+  @@index([workspaceId])
+}
+
+model MySmartCardProduct {
+  id              String   @id @default(uuid())
+  workspaceId     String
+  name            String
+  slug            String
+  description     String   @db.Text
+  price           Decimal  @db.Decimal(10, 2)
+  discountedPrice Decimal?
+  features        Json?
+  specifications  Json?
+  targetCustomer  String?
+  isAvailable     Boolean  @default(true)
+  purchaseUrl     String?
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace  MySmartCardWorkspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  media      MySmartCardMedia[]
+  faqs       MySmartCardFAQ[]
+  leads      MySmartCardLead[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId])
+  @@index([isAvailable])
+}
+
+model MySmartCardKnowledgeDocument {
+  id          String   @id @default(uuid())
+  workspaceId String
+  title       String
+  content     String   @db.Text
+  sourceType  String   @default("text")
+  sourceUrl   String?
+  category    String   @default("general")
+  tags        Json?
+  chunkCount  Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace MySmartCardWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([category])
+}
+
+model MySmartCardFAQ {
+  id          String   @id @default(uuid())
+  workspaceId String
+  productId   String?
+  question    String
+  answer      String   @db.Text
+  category    String   @default("general")
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace MySmartCardWorkspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  product   MySmartCardProduct?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([productId])
+  @@index([category])
+}
+
+model MySmartCardPolicy {
+  id          String   @id @default(uuid())
+  workspaceId String
+  type        String
+  title       String
+  content     String   @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace MySmartCardWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, type])
+  @@index([workspaceId])
+  @@index([type])
+}
+
+model MySmartCardOffer {
+  id              String   @id @default(uuid())
+  workspaceId     String
+  name            String
+  description     String   @db.Text
+  discount        Float?
+  discountType    String   @default("percentage")
+  applicableProduct String?
+  conditions      Json?
+  validFrom       DateTime?
+  validUntil      DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace MySmartCardWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([isActive])
+}
+
+model MySmartCardLead {
+  id              String               @id @default(uuid())
+  workspaceId     String
+  contactId       String?
+  name            String?
+  phone           String
+  email           String?
+  company         String?
+  city            String?
+  source          String               @default("whatsapp")
+  productId       String?
+  quantity        Int?
+  intent          MySmartCardIntent?
+  leadScore       Int                  @default(0)
+  scoreReasons    Json?
+  status          MySmartCardLeadStatus @default(NEW)
+  assignedAgentId String?
+  notes           String?              @db.Text
+  tags            Json?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  workspace   MySmartCardWorkspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  product     MySmartCardProduct?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  contact     Contact?                 @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assignedAgent User?                  @relation(fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  conversations MySmartCardConversation[]
+
+  @@index([workspaceId])
+  @@index([phone])
+  @@index([status])
+  @@index([leadScore])
+  @@index([productId])
+  @@index([assignedAgentId])
+  @@index([createdAt])
+}
+
+model MySmartCardConversation {
+  id              String                    @id @default(uuid())
+  workspaceId     String
+  conversationId  String
+  leadId          String?
+  mode            MySmartCardConversationMode @default(AI)
+  detectedIntent  MySmartCardIntent?
+  confidence      Float?
+  humanHandoffAt  DateTime?
+  handoffReason   String?
+  knowledgeSources Json?
+  tags            Json?
+  isActive        Boolean                   @default(true)
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  workspace   MySmartCardWorkspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversation Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  lead        MySmartCardLead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  events      MySmartCardConversationEvent[]
+
+  @@unique([conversationId])
+  @@index([workspaceId])
+  @@index([conversationId])
+  @@index([leadId])
+  @@index([mode])
+  @@index([isActive])
+}
+
+model MySmartCardConversationEvent {
+  id                    String   @id @default(uuid())
+  conversationId        String
+  type                  String
+  data                  Json?
+  createdAt             DateTime @default(now())
+
+  conversation MySmartCardConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model MySmartCardAutomation {
+  id          String   @id @default(uuid())
+  workspaceId String
+  name        String
+  description String?
+  trigger     Json?
+  conditions  Json?
+  actions     Json?
+  isActive    Boolean  @default(false)
+  lastExecutedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace MySmartCardWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([isActive])
+}
+
+model MySmartCardMedia {
+  id          String   @id @default(uuid())
+  workspaceId String
+  productId   String?
+  name        String
+  type        String
+  url         String
+  thumbnailUrl String?
+  fileSize    Int?
+  mimeType    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  workspace MySmartCardWorkspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  product   MySmartCardProduct?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([productId])
+  @@index([type])
+}
+
+model MySmartCardTemplate {
+  id          String   @id @default(uuid())
+  workspaceId String
+  name        String
+  category    String
+  language    String   @default("en")
+  header      Json?
+  body        Json?
+  footer      String?
+  buttons     Json?
+  status      TemplateStatus @default(DRAFT)
+  metaTemplateId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace MySmartCardWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([status])
+  @@index([category])
+}
+
+model MySmartCardSetting {
+  id          String   @id @default(uuid())
+  workspaceId String
+  key         String
+  value       Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace MySmartCardWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, key])
+  @@index([workspaceId])
 }
